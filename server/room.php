@@ -45,7 +45,7 @@ foreach ($pilots_raw['pilots'] as $p) {
 
     <!-- Header -->
     <header class="room-header">
-        <h1>MechaTag</h1>
+        <h1><a href="/">MechaTag</a></h1>
         <div class="room-code">
             <span>Room:</span>
             <strong x-text="roomId"></strong>
