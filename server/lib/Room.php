@@ -172,6 +172,7 @@ class Room {
                 'team'   => $p['team'] !== null ? (int)$p['team'] : null,
                 'online' => (time() - $p['last_seen']) <= ONLINE_THRESHOLD,
                 'is_me'  => $pid === $current_player_id,
+                'pilot'  => $state['pilots'][$pid] ?? null,
             ];
         }
         return [

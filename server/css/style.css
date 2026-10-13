@@ -242,13 +242,14 @@ input[type=text]:disabled { opacity: 0.4; cursor: not-allowed; }
 
 .msg-bubble {
     background: var(--panel);
+    color: var(--text);
     border-radius: 6px;
     padding: 0.4rem 0.7rem;
     font-size: 0.9rem;
     word-break: break-word;
     line-height: 1.45;
 }
-.mine .msg-bubble { background: #1a3560; }
+.mine .msg-bubble { background: #1a3560; color: var(--text); }
 
 .chat-empty {
     color: var(--muted);
@@ -278,10 +279,189 @@ input[type=text]:disabled { opacity: 0.4; cursor: not-allowed; }
     border-top: 1px solid var(--border);
 }
 
+/* ── Main area (wraps draft + chat) ──────────────────────────── */
+
+.main-area {
+    display: flex;
+    flex: 1;
+    overflow: hidden;
+}
+
+.main-area .chat-panel { flex: 1; }
+.main-area.draft-mode .chat-panel { flex: 0 0 280px; border-left: 1px solid var(--border); }
+
+/* ── Draft panel ─────────────────────────────────────────────── */
+
+.draft-panel {
+    flex: 1;
+    overflow-y: auto;
+    padding: 1rem 1.25rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.draft-status-bar {
+    display: flex;
+    gap: 0.75rem;
+    flex-shrink: 0;
+}
+
+.readiness-badge {
+    font-size: 0.8rem;
+    font-weight: 600;
+    padding: 0.3rem 0.65rem;
+    border-radius: 4px;
+}
+.readiness-badge.ready   { background: color-mix(in srgb, var(--success) 20%, transparent); color: var(--success); border: 1px solid color-mix(in srgb, var(--success) 50%, transparent); }
+.readiness-badge.waiting { background: color-mix(in srgb, var(--muted) 15%, transparent); color: var(--muted); border: 1px solid var(--border); }
+
+.draft-section-label {
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--muted);
+    margin-top: 0.25rem;
+}
+
+.pick-hint { text-transform: none; letter-spacing: 0; font-weight: 500; }
+
+/* ── Card grid ───────────────────────────────────────────────── */
+
+.card-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 0.6rem;
+}
+
+.card-grid-sm {
+    grid-template-columns: repeat(4, 1fr);
+}
+
+.module-card {
+    background: var(--panel);
+    border: 2px solid var(--border);
+    border-radius: 7px;
+    padding: 0.6rem 0.7rem;
+    cursor: pointer;
+    transition: border-color 0.12s, transform 0.1s;
+    position: relative;
+    user-select: none;
+    min-height: 90px;
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+}
+.module-card:hover:not(.card-locked):not(.collected) {
+    border-color: var(--accent);
+    transform: translateY(-1px);
+}
+.module-card.card-mine {
+    border-color: var(--accent);
+    background: color-mix(in srgb, var(--accent) 10%, var(--panel));
+}
+.module-card.card-teammate {
+    border-color: var(--success);
+    background: color-mix(in srgb, var(--success) 8%, var(--panel));
+    cursor: not-allowed;
+}
+.module-card.card-locked { opacity: 0.55; cursor: default; }
+.module-card.collected { cursor: default; border-color: var(--border); opacity: 0.8; }
+
+.card-name {
+    font-size: 0.88rem;
+    font-weight: 700;
+    color: var(--text);
+    line-height: 1.2;
+}
+
+.card-meta {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+}
+
+.card-type-badge {
+    font-size: 0.65rem;
+    font-weight: 700;
+    padding: 0.1rem 0.3rem;
+    border-radius: 3px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+.type-part      { background: #1a3050; color: #60a0e0; }
+.type-equipment { background: #2a1a40; color: #a060d0; }
+
+.card-tier {
+    font-size: 0.65rem;
+    color: var(--muted);
+}
+
+.card-effects {
+    font-size: 0.75rem;
+    color: var(--muted);
+    line-height: 1.35;
+    flex: 1;
+}
+
+.card-pick-label {
+    font-size: 0.65rem;
+    font-weight: 700;
+    color: var(--accent);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    margin-top: auto;
+}
+.card-pick-label.teammate { color: var(--success); }
+
+/* ── Pilot indicators ────────────────────────────────────────── */
+
+.pilot-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    display: inline-block;
+}
+.pilot-tag {
+    font-size: 0.8rem;
+    font-weight: 600;
+    padding: 0.1rem 0.4rem;
+    border-radius: 3px;
+}
+.pilot-blue   { background: #4090ff; color: #fff; }
+.pilot-green  { background: #40c870; color: #000; }
+.pilot-purple { background: #a050e0; color: #fff; }
+.pilot-black  { background: #707080; color: #fff; }
+
+/* ── Draft phase sidebar labels ──────────────────────────────── */
+
+.phase-label {
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--accent);
+    font-weight: 700;
+}
+
+.draft-round-label {
+    font-size: 0.8rem;
+    color: var(--muted);
+}
+
 /* ── Responsive ──────────────────────────────────────────────── */
+
+@media (max-width: 780px) {
+    .card-grid    { grid-template-columns: repeat(2, 1fr); }
+    .card-grid-sm { grid-template-columns: repeat(3, 1fr); }
+    .main-area.draft-mode .chat-panel { flex: 0 0 220px; }
+}
 
 @media (max-width: 620px) {
     .room-body        { flex-direction: column; }
     .players-panel    { width: 100%; border-right: none; border-bottom: 1px solid var(--border); max-height: 38vh; }
     .room-player      { display: none; }
+    .main-area        { flex-direction: column; }
+    .main-area.draft-mode .chat-panel { flex: 0 0 200px; border-left: none; border-top: 1px solid var(--border); }
+    .card-grid        { grid-template-columns: repeat(2, 1fr); }
 }

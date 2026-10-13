@@ -1,6 +1,7 @@
 <?php
 header('Content-Type: application/json');
 require_once __DIR__ . '/../lib/Room.php';
+require_once __DIR__ . '/../lib/Draft.php';
 
 $player_id    = $_COOKIE['player_id'] ?? null;
 $room_id      = strtoupper(trim($_GET['room_id'] ?? ''));
@@ -37,4 +38,5 @@ echo json_encode([
         'global' => Room::getMessages($room_id, 'global', $since_global),
         'team'   => $team_channel ? Room::getMessages($room_id, $team_channel, $since_team) : [],
     ],
+    'draft' => Draft::publicState($state, $player_id),
 ]);
