@@ -201,26 +201,15 @@ foreach ($pilots_raw['pilots'] as $p) {
             <!-- Chat panel -->
             <div class="chat-panel">
                 <div class="chat-tabs">
-                    <button :class="{ active: tab === 'global' }" @click="tab = 'global'">Global</button>
+                    <button :class="{ active: tab === 'global' }" @click="switchTab('global')">Global</button>
                     <button :class="{ active: tab === 'team' }"
                         x-show="myTeam !== null"
-                        @click="tab = 'team'">
+                        @click="switchTab('team')">
                         Team <span x-text="myTeam"></span>
                     </button>
                 </div>
 
-                <div class="chat-messages" id="chat-messages">
-                    <template x-for="msg in (tab === 'global' ? globalMsgs : teamMsgs)" :key="msg.seq">
-                        <div class="msg-row" :class="{ mine: msg.pid === playerId }">
-                            <div class="msg-meta">
-                                <span x-text="msg.name"></span>
-                                <span x-text="fmtTime(msg.ts)"></span>
-                            </div>
-                            <div class="msg-bubble" x-text="msg.text"></div>
-                        </div>
-                    </template>
-                    <div x-show="(tab === 'global' ? globalMsgs : teamMsgs).length === 0" class="chat-empty">No messages yet.</div>
-                </div>
+                <div class="chat-messages" id="chat-messages"></div>
 
                 <form class="chat-form" @submit.prevent="sendChat">
                     <input
@@ -275,6 +264,7 @@ function roomApp() {
                 return;
             }
             await this.poll();
+            this.renderChat();
             setInterval(() => this.poll(), 2000);
         },
 
@@ -290,24 +280,30 @@ function roomApp() {
             try { res = await fetch('api/poll.php?' + qs); }
             catch { return; }
             if (!res.ok) return;
-            const data = await res.json();
+            let data;
+            try { data = await res.json(); }
+            catch { this.error = 'Poll error: invalid server response'; return; }
             if (!data.ok) { this.error = data.error; return; }
 
             this.roomState  = data.room;
             this.draftState = data.draft;
 
-            if (data.chat.global.length) {
-                this.globalMsgs.push(...data.chat.global);
-                this.seenGlobal = this.globalMsgs.at(-1).seq;
-                if (this.tab === 'global') this.scrollDown();
+            let chatChanged = false;
+            const newGlobal = data.chat.global.filter(m => m.seq > this.seenGlobal);
+            if (newGlobal.length) {
+                this.globalMsgs = this.globalMsgs.concat(newGlobal);
+                this.seenGlobal = newGlobal[newGlobal.length - 1].seq;
+                chatChanged = true;
             }
-            if (data.chat.team.length) {
-                this.teamMsgs.push(...data.chat.team);
-                this.seenTeam = this.teamMsgs.at(-1).seq;
-                if (this.tab === 'team') this.scrollDown();
+            const newTeam = data.chat.team.filter(m => m.seq > this.seenTeam);
+            if (newTeam.length) {
+                this.teamMsgs = this.teamMsgs.concat(newTeam);
+                this.seenTeam = newTeam[newTeam.length - 1].seq;
+                chatChanged = true;
             }
+            if (chatChanged) this.renderChat();
 
-            if (this.myTeam === null && this.tab === 'team') this.tab = 'global';
+            if (this.myTeam === null && this.tab === 'team') { this.tab = 'global'; this.renderChat(); }
         },
 
         // ── Actions ─────────────────────────────────────────────
@@ -364,13 +360,47 @@ function roomApp() {
             });
         },
 
+        renderChat() {
+            const msgs = this.tab === 'global' ? this.globalMsgs : this.teamMsgs;
+            const el = document.getElementById('chat-messages');
+            if (!el) return;
+            el.innerHTML = '';
+            if (msgs.length === 0) {
+                const empty = document.createElement('div');
+                empty.className = 'chat-empty';
+                empty.textContent = 'No messages yet.';
+                el.appendChild(empty);
+                return;
+            }
+            for (const msg of msgs) {
+                const row = document.createElement('div');
+                row.className = 'msg-row' + (msg.pid === this.playerId ? ' mine' : '');
+                const meta = document.createElement('div');
+                meta.className = 'msg-meta';
+                const nameSpan = document.createElement('span');
+                nameSpan.textContent = msg.name;
+                const timeSpan = document.createElement('span');
+                timeSpan.textContent = this.fmtTime(msg.ts);
+                meta.appendChild(nameSpan);
+                meta.appendChild(timeSpan);
+                const bubble = document.createElement('div');
+                bubble.className = 'msg-bubble';
+                bubble.textContent = msg.text;
+                row.appendChild(meta);
+                row.appendChild(bubble);
+                el.appendChild(row);
+            }
+            el.scrollTop = el.scrollHeight;
+        },
+
+        switchTab(t) {
+            this.tab = t;
+            this.renderChat();
+        },
+
         scrollDown() {
-            this.$nextTick(() => {
-                requestAnimationFrame(() => {
-                    const el = document.getElementById('chat-messages');
-                    if (el) el.scrollTop = el.scrollHeight;
-                });
-            });
+            const el = document.getElementById('chat-messages');
+            if (el) el.scrollTop = el.scrollHeight;
         },
 
         fmtTime(ts) {
@@ -439,6 +469,7 @@ function roomApp() {
                 && ps.filter(p => p.team === 2).length >= 1
                 && ps.every(p => p.team !== null);
         },
+
     };
 }
 </script>

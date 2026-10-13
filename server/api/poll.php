@@ -1,7 +1,10 @@
 <?php
-header('Content-Type: application/json');
+ini_set('display_errors', '0');
+ob_start();
 require_once __DIR__ . '/../lib/Room.php';
 require_once __DIR__ . '/../lib/Draft.php';
+ob_end_clean();  // discard any warnings printed during require
+header('Content-Type: application/json');
 
 $player_id    = $_COOKIE['player_id'] ?? null;
 $room_id      = strtoupper(trim($_GET['room_id'] ?? ''));
