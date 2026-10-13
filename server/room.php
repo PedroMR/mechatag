@@ -60,7 +60,6 @@ foreach ($pilots_raw['pilots'] as $p) {
         </div>
         <div class="room-player">
             Playing as <strong><?= htmlspecialchars($player_name) ?></strong>
-            <span x-show="myPilot">&mdash; <span class="pilot-tag" :class="'pilot-' + myPilotColor" x-text="myPilot"></span></span>
             &mdash; <a href="api/logout.php">logout</a>
         </div>
     </header>
@@ -80,7 +79,6 @@ foreach ($pilots_raw['pilots'] as $p) {
                             <span x-text="p.name"></span>
                             <span x-show="p.is_me" class="badge badge-you">you</span>
                             <span x-show="!p.online" class="badge badge-off">away</span>
-                            <span x-show="p.pilot" class="pilot-dot" :class="'pilot-' + p.pilot" :title="pilotName(p.pilot)"></span>
                         </li>
                     </template>
                     <li x-show="playersOnTeam(1).length === 0" class="empty-slot">empty</li>
@@ -102,7 +100,6 @@ foreach ($pilots_raw['pilots'] as $p) {
                             <span x-text="p.name"></span>
                             <span x-show="p.is_me" class="badge badge-you">you</span>
                             <span x-show="!p.online" class="badge badge-off">away</span>
-                            <span x-show="p.pilot" class="pilot-dot" :class="'pilot-' + p.pilot" :title="pilotName(p.pilot)"></span>
                         </li>
                     </template>
                     <li x-show="playersOnTeam(2).length === 0" class="empty-slot">empty</li>
@@ -258,10 +255,10 @@ foreach ($pilots_raw['pilots'] as $p) {
 
                 <!-- Available cards pool -->
                 <div class="draft-section-label">
-                    Available Cards (<span x-text="configAvailable().length"></span>)
+                    Available Cards (<span x-text="configCards.length"></span>)
                 </div>
-                <div class="card-grid card-grid-sm" x-show="configAvailable().length > 0">
-                    <template x-for="cardId in configAvailable()" :key="cardId">
+                <div class="card-grid card-grid-sm" x-show="configCards.length > 0">
+                    <template x-for="cardId in configCards" :key="cardId">
                         <div class="module-card"
                              :class="{ 'card-mine': selectedCard === cardId }"
                              @click="configSelectCard(cardId)">
@@ -279,7 +276,7 @@ foreach ($pilots_raw['pilots'] as $p) {
                         </div>
                     </template>
                 </div>
-                <div class="config-empty-pool" x-show="configAvailable().length === 0">All cards assigned</div>
+                <div class="config-empty-pool" x-show="configCards.length === 0">All cards assigned</div>
 
                 <!-- Mechs -->
                 <div class="draft-section-label" style="margin-top:0.25rem">Your Mechs</div>
@@ -291,11 +288,11 @@ foreach ($pilots_raw['pilots'] as $p) {
                                      class="mech-img-sm" alt="Mech">
                                 <div class="mech-config-info">
                                     <div class="mech-title" x-text="mechLabel(mechIdx)"></div>
-                                    <div class="mech-hp-bar">
-                                        <span class="mech-hp-used" x-text="mech.hp_used"></span>
-                                        <span class="mech-hp-sep">/</span>
-                                        <span class="mech-hp-total" x-text="mech.hp_total"></span>
-                                        <span class="mech-hp-label"> HP used</span>
+                                    <div class="mech-hardp-bar">
+                                        <span class="mech-hardp-used" x-text="mech.hp_used"></span>
+                                        <span class="mech-hardp-sep">/</span>
+                                        <span class="mech-hardp-total" x-text="mech.hp_total"></span>
+                                        <span class="mech-hardp-label"> hardp used</span>
                                     </div>
                                 </div>
                             </div>
@@ -312,15 +309,15 @@ foreach ($pilots_raw['pilots'] as $p) {
                                             <div class="slot-content"
                                                  x-text="mech.slots[slot] ? (cardInfo(mech.slots[slot])?.name ?? mech.slots[slot]) : slotDefault(slot)">
                                             </div>
-                                            <div class="slot-hp"
+                                            <div class="slot-hardp"
                                                  x-show="(mech.slot_hp?.[slot]?.available ?? 0) > 0"
-                                                 :class="{ 'no-free': slotHpFree(mech, slot) === 0 }"
-                                                 x-text="slotHpFree(mech, slot) + '\u2665 HP'">
+                                                 :class="{ 'no-free': slotHardpFree(mech, slot) === 0 }"
+                                                 x-text="slotHardpFree(mech, slot) + ' hardp'">
                                             </div>
                                         </div>
                                         <!-- Equipment attached to this slot -->
                                         <div class="slot-equip-row"
-                                             x-show="(mech.slot_hp?.[slot]?.available ?? 0) > 0">
+                                             x-show="(mech.slot_hp?.[slot]?.available ?? 0) > 0 || (mech.equipment?.[slot]?.length ?? 0) > 0">
                                             <template x-for="(eqId, ei) in (mech.equipment?.[slot] ?? [])" :key="ei">
                                                 <div class="equip-tag"
                                                      @click.stop="configAssign(mechIdx, slot, eqId)">
@@ -628,14 +625,6 @@ function roomApp() {
         get myTeam()   { return this.players.find(p => p.is_me)?.team ?? null; },
         get unassigned() { return this.players.filter(p => p.team === null); },
 
-        get myPilot() {
-            const me = this.players.find(p => p.is_me);
-            return me?.pilot ? PILOTS[me.pilot] : null;
-        },
-        get myPilotColor() {
-            return this.players.find(p => p.is_me)?.pilot ?? '';
-        },
-
         playersOnTeam(t) { return this.players.filter(p => p.team === t); },
 
         get canStart() {
@@ -651,14 +640,12 @@ function roomApp() {
         capFirst(s) { return s ? s.charAt(0).toUpperCase() + s.slice(1) : ''; },
 
         mechPilotColor(mechIdx) {
-            const players = this.playersOnTeam(this.myTeam);
-            return (players[mechIdx] ?? players[0])?.pilot ?? 'blue';
+            const teamPilots = this.roomState?.pilots?.[String(this.myTeam)] ?? [];
+            return teamPilots[mechIdx] ?? 'blue';
         },
 
         mechLabel(mechIdx) {
-            const players = this.playersOnTeam(this.myTeam);
-            const player  = players[mechIdx] ?? players[0];
-            return player ? player.name + "'s Mech" : 'Mech ' + (mechIdx + 1);
+            return this.pilotName(this.mechPilotColor(mechIdx));
         },
 
         slotLabel(slot) {
@@ -683,21 +670,21 @@ function roomApp() {
 
         slotAcceptsCard(slot, card) {
             const parts = card.parts ?? [];
-            if (!parts.length) return true;  // no parts restriction: accept anywhere
+            if (!parts.length || parts.includes('any')) return true;
             if (slot === 'r_arm' || slot === 'l_arm') return parts.includes('arm');
             return parts.includes(slot);
         },
 
         // ── Config actions ───────────────────────────────────────
 
-        configAvailable() {
+        get configCards() {
             if (!this.configState) return [];
-            const all      = this.configState.modules;
+            const all      = (this.configState.modules ?? []).slice(); // .slice() forces Alpine reactivity tracking
             const assigned = new Set();
-            for (const mech of this.configState.mechs) {
-                for (const v of Object.values(mech.slots)) { if (v) assigned.add(v); }
+            for (const mech of this.configState.mechs ?? []) {
+                for (const v of Object.values(mech.slots ?? {})) { if (v) assigned.add(v); }
                 for (const slotEquip of Object.values(mech.equipment ?? {})) {
-                    for (const c of slotEquip) assigned.add(c);
+                    for (const c of (slotEquip ?? [])) assigned.add(c);
                 }
             }
             return all.filter(id => !assigned.has(id));
@@ -725,14 +712,14 @@ function roomApp() {
             }
         },
 
-        slotHpFree(mech, slot) {
+        slotHardpFree(mech, slot) {
             const hp = mech.slot_hp?.[slot];
             return hp ? hp.available - hp.used : 0;
         },
 
         slotAcceptsEquip(slot, card, mech) {
             if (!card || !this.slotAcceptsCard(slot, card)) return false;
-            const free = this.slotHpFree(mech, slot);
+            const free = this.slotHardpFree(mech, slot);
             return free >= (card.hardpoints_required ?? 0);
         },
 

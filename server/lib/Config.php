@@ -102,7 +102,7 @@ class Config {
         } else if ($card['type'] === 'equipment') {
             // Validate equipment can attach to this slot
             $card_parts = $card['parts'] ?? [];
-            if (!empty($card_parts)) {
+            if (!empty($card_parts) && !in_array('any', $card_parts, true)) {
                 $allowed = ($slot === 'r_arm' || $slot === 'l_arm')
                     ? in_array('arm', $card_parts, true)
                     : in_array($slot, $card_parts, true);

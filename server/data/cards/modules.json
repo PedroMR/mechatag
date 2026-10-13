@@ -471,7 +471,7 @@
         "range": "234"
     },
     {
-        "id": "shotgun",
+        "id": "heavy_shotgun",
         "name": "Heavy Shotgun",
         "tier": 3,
         "copies": 2,

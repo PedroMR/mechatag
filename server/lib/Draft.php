@@ -33,21 +33,21 @@ class Draft {
      * Assigns pilots randomly, deals the first two hands.
      */
     public static function start(array $state): array {
+        // Assign 4 pilot colors to the 4 mechs: 2 per team
         $pilots = ['blue', 'green', 'purple', 'black'];
         shuffle($pilots);
-        $pilot_assignment = [];
-        foreach (array_keys($state['players']) as $i => $pid) {
-            $pilot_assignment[$pid] = $pilots[$i % 4];
-        }
+        $state['pilots'] = [
+            '1' => [$pilots[0], $pilots[1]],
+            '2' => [$pilots[2], $pilots[3]],
+        ];
 
         $game_round = $state['game_round'] ?? 1;
-        $tier       = $game_round;           // draft 1 → T1, draft 2 → T2, etc.
+        $tier       = $game_round;
         $deck = self::buildDeck($tier);
         $hand1 = array_splice($deck, 0, 6);
         $hand2 = array_splice($deck, 0, 6);
 
-        $state['phase']  = 'draft';
-        $state['pilots'] = $pilot_assignment;
+        $state['phase'] = 'draft';
         $state['draft']  = [
             'round'        => 1,
             'step'         => 'initial',

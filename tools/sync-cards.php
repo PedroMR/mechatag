@@ -103,6 +103,21 @@ foreach ($rows as $row) {
     $modules[] = $module;
 }
 
+// ── Check for duplicate IDs ───────────────────────────────────────────────────
+
+$seen_ids = [];
+$has_dupes = false;
+foreach ($modules as $m) {
+    if (isset($seen_ids[$m['id']])) {
+        echo "  WARNING: duplicate id '{$m['id']}' ('{$seen_ids[$m['id']]}' and '{$m['name']}')\n";
+        $has_dupes = true;
+    }
+    $seen_ids[$m['id']] = $m['name'];
+}
+if ($has_dupes) {
+    echo "  Fix duplicate IDs in the sheet before the data is usable.\n";
+}
+
 // ── Write JSON ────────────────────────────────────────────────────────────────
 
 $json = json_encode($modules, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE) . "\n";

@@ -529,14 +529,15 @@ input[type=text]:disabled { opacity: 0.4; cursor: not-allowed; }
     flex-direction: column;
     align-items: center;
     gap: 0.4rem;
-    opacity: 0.6;
+    opacity: 0.7;
+    background: #fff2;
 }
 
 .mech-img {
     width: 72px;
     height: 72px;
     object-fit: contain;
-    filter: invert(1);
+    border-radius: 4px;
 }
 
 .mech-label {
@@ -599,8 +600,9 @@ input[type=text]:disabled { opacity: 0.4; cursor: not-allowed; }
     width: 56px;
     height: 56px;
     object-fit: contain;
-    filter: invert(1);
     flex-shrink: 0;
+    border-radius: 4px;
+    background: #fff;
 }
 
 .mech-config-info { display: flex; flex-direction: column; gap: 0.2rem; }
@@ -611,13 +613,13 @@ input[type=text]:disabled { opacity: 0.4; cursor: not-allowed; }
     color: var(--text);
 }
 
-.mech-hp-bar {
+.mech-hardp-bar {
     font-size: 0.78rem;
     color: var(--muted);
 }
-.mech-hp-used  { color: var(--danger); font-weight: 700; }
-.mech-hp-total { color: var(--text); font-weight: 700; }
-.mech-hp-label { color: var(--muted); }
+.mech-hardp-used  { color: var(--danger); font-weight: 700; }
+.mech-hardp-total { color: var(--text); font-weight: 700; }
+.mech-hardp-label { color: var(--muted); }
 
 /* ── Mech part slots + per-slot equipment ────────────────────── */
 
@@ -676,13 +678,13 @@ input[type=text]:disabled { opacity: 0.4; cursor: not-allowed; }
 }
 .mech-slot.slot-empty .slot-content { color: var(--muted); font-style: italic; }
 
-.slot-hp {
+.slot-hardp {
     font-size: 0.65rem;
     font-weight: 700;
     color: var(--success);
     flex-shrink: 0;
 }
-.slot-hp.no-free { color: var(--danger); }
+.slot-hardp.no-free { color: var(--danger); }
 
 /* ── Per-slot equipment ──────────────────────────────────────── */
 
