@@ -374,6 +374,26 @@ input[type=text]:disabled { opacity: 0.4; cursor: not-allowed; }
 .module-card.card-locked { opacity: 0.55; cursor: default; }
 .module-card.collected { cursor: default; border-color: var(--border); opacity: 0.8; }
 
+.card-top {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 0.25rem;
+}
+
+.card-top .card-name { flex: 1; }
+
+.card-hp { display: flex; gap: 2px; flex-shrink: 0; padding-top: 1px; }
+
+.hp-hex {
+    width: 11px;
+    height: 11px;
+    display: inline-block;
+    clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%);
+}
+.hp-offered  { background: var(--success); }
+.hp-required { background: var(--danger); }
+
 .card-name {
     font-size: 0.88rem;
     font-weight: 700;
@@ -410,13 +430,51 @@ input[type=text]:disabled { opacity: 0.4; cursor: not-allowed; }
     flex: 1;
 }
 
+.card-aoe {
+    font-size: 0.68rem;
+    color: var(--accent);
+    margin-top: 0.1rem;
+}
+
+.card-energy {
+    display: flex;
+    gap: 3px;
+    margin-top: 0.2rem;
+}
+
+.energy-sq {
+    width: 10px;
+    height: 10px;
+    border: 1.5px solid #4090ff;
+    border-radius: 2px;
+    flex-shrink: 0;
+}
+.energy-sq.filled { background: #4090ff; }
+
+.card-range {
+    font-size: 0.68rem;
+    color: var(--muted);
+    margin-top: 0.15rem;
+    letter-spacing: 0.01em;
+}
+.range-n   { color: var(--text); font-weight: 700; margin: 0 1px; }
+.range-dot { margin: 0 1px; }
+
+.card-parts {
+    font-size: 0.68rem;
+    font-weight: 700;
+    color: var(--muted);
+    letter-spacing: 0.06em;
+    margin-top: auto;
+    padding-top: 0.25rem;
+}
+
 .card-pick-label {
     font-size: 0.65rem;
     font-weight: 700;
     color: var(--accent);
     text-transform: uppercase;
     letter-spacing: 0.06em;
-    margin-top: auto;
 }
 .card-pick-label.teammate { color: var(--success); }
 
@@ -455,12 +513,220 @@ input[type=text]:disabled { opacity: 0.4; cursor: not-allowed; }
     color: var(--muted);
 }
 
+/* ── Mech preview (draft phase) ──────────────────────────────── */
+
+.mech-previews {
+    display: flex;
+    gap: 0.75rem;
+}
+
+.mech-outline {
+    flex: 1;
+    border: 2px dashed var(--border);
+    border-radius: 8px;
+    padding: 0.75rem 0.5rem;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.4rem;
+    opacity: 0.6;
+}
+
+.mech-img {
+    width: 72px;
+    height: 72px;
+    object-fit: contain;
+    filter: invert(1);
+}
+
+.mech-label {
+    font-size: 0.72rem;
+    color: var(--muted);
+    text-align: center;
+}
+
+/* ── Config panel ────────────────────────────────────────────── */
+
+.main-area.config-mode .chat-panel { flex: 0 0 280px; border-left: 1px solid var(--border); }
+
+.config-panel {
+    flex: 1;
+    overflow-y: auto;
+    padding: 1rem 1.25rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.config-hint {
+    font-size: 0.8rem;
+    color: var(--muted);
+    margin-left: auto;
+}
+.config-hint.selected { color: var(--accent); }
+
+.config-empty-pool {
+    font-size: 0.82rem;
+    color: var(--success);
+    font-style: italic;
+}
+
+/* ── Mechs row (config) ───────────────────────────────────────── */
+
+.mechs-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+}
+
+.mech-config-card {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 0.85rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.65rem;
+}
+
+.mech-config-header {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.mech-img-sm {
+    width: 56px;
+    height: 56px;
+    object-fit: contain;
+    filter: invert(1);
+    flex-shrink: 0;
+}
+
+.mech-config-info { display: flex; flex-direction: column; gap: 0.2rem; }
+
+.mech-title {
+    font-size: 0.9rem;
+    font-weight: 700;
+    color: var(--text);
+}
+
+.mech-hp-bar {
+    font-size: 0.78rem;
+    color: var(--muted);
+}
+.mech-hp-used  { color: var(--danger); font-weight: 700; }
+.mech-hp-total { color: var(--text); font-weight: 700; }
+.mech-hp-label { color: var(--muted); }
+
+/* ── Mech part slots + per-slot equipment ────────────────────── */
+
+.mech-slots {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+}
+
+.mech-slot-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+}
+
+.mech-slot {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.35rem 0.55rem;
+    border-radius: 5px;
+    border: 1px solid var(--border);
+    cursor: pointer;
+    transition: border-color 0.12s, background 0.12s;
+    font-size: 0.82rem;
+}
+.mech-slot:hover { border-color: var(--accent); }
+
+.mech-slot.slot-filled {
+    border-color: var(--accent);
+    background: color-mix(in srgb, var(--accent) 8%, var(--panel));
+}
+
+.mech-slot.slot-highlight {
+    border-color: var(--success);
+    background: color-mix(in srgb, var(--success) 8%, var(--panel));
+}
+
+.mech-slot.slot-no-default { opacity: 0.55; }
+.mech-slot.slot-no-default:hover { opacity: 1; }
+
+.slot-label {
+    font-size: 0.65rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--muted);
+    flex-shrink: 0;
+    width: 42px;
+}
+
+.slot-content {
+    flex: 1;
+    color: var(--text);
+    font-size: 0.82rem;
+}
+.mech-slot.slot-empty .slot-content { color: var(--muted); font-style: italic; }
+
+.slot-hp {
+    font-size: 0.65rem;
+    font-weight: 700;
+    color: var(--success);
+    flex-shrink: 0;
+}
+.slot-hp.no-free { color: var(--danger); }
+
+/* ── Per-slot equipment ──────────────────────────────────────── */
+
+.slot-equip-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.25rem;
+    padding-left: 0.5rem;
+}
+
+.equip-tag {
+    display: flex;
+    align-items: center;
+    gap: 0.3rem;
+    background: color-mix(in srgb, var(--accent) 12%, var(--bg));
+    border: 1px solid color-mix(in srgb, var(--accent) 40%, transparent);
+    color: var(--text);
+    border-radius: 4px;
+    padding: 0.18rem 0.45rem;
+    font-size: 0.76rem;
+    cursor: pointer;
+}
+.equip-tag:hover { border-color: var(--danger); }
+.equip-remove { color: var(--muted); font-size: 0.82rem; }
+.equip-tag:hover .equip-remove { color: var(--danger); }
+
+.equip-drop-zone {
+    border: 1px dashed var(--success);
+    border-radius: 4px;
+    padding: 0.18rem 0.45rem;
+    font-size: 0.76rem;
+    color: var(--success);
+    cursor: pointer;
+}
+.equip-drop-zone:hover { background: color-mix(in srgb, var(--success) 10%, transparent); }
+
 /* ── Responsive ──────────────────────────────────────────────── */
 
 @media (max-width: 780px) {
     .card-grid    { grid-template-columns: repeat(2, 1fr); }
     .card-grid-sm { grid-template-columns: repeat(3, 1fr); }
-    .main-area.draft-mode .chat-panel { flex: 0 0 220px; }
+    .main-area.draft-mode  .chat-panel { flex: 0 0 220px; }
+    .main-area.config-mode .chat-panel { flex: 0 0 220px; }
+    .mechs-row { grid-template-columns: 1fr; }
 }
 
 @media (max-width: 620px) {
@@ -468,6 +734,7 @@ input[type=text]:disabled { opacity: 0.4; cursor: not-allowed; }
     .players-panel    { width: 100%; border-right: none; border-bottom: 1px solid var(--border); max-height: 38vh; }
     .room-player      { display: none; }
     .main-area        { flex-direction: column; }
-    .main-area.draft-mode .chat-panel { flex: 0 0 200px; border-left: none; border-top: 1px solid var(--border); }
+    .main-area.draft-mode  .chat-panel { flex: 0 0 200px; border-left: none; border-top: 1px solid var(--border); }
+    .main-area.config-mode .chat-panel { flex: 0 0 200px; border-left: none; border-top: 1px solid var(--border); }
     .card-grid        { grid-template-columns: repeat(2, 1fr); }
 }

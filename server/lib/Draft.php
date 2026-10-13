@@ -8,13 +8,13 @@ class Draft {
     // Deck building
     // -------------------------------------------------------------------------
 
-    public static function buildTierOneDeck(): array {
+    public static function buildDeck(int $tier): array {
         $modules = json_decode(
             file_get_contents(__DIR__ . '/../data/cards/modules.json'), true
         );
         $deck = [];
         foreach ($modules as $m) {
-            if ((int)$m['tier'] === 1) {
+            if ((int)$m['tier'] === $tier) {
                 for ($i = 0; $i < (int)$m['copies']; $i++) {
                     $deck[] = $m['id'];
                 }
@@ -40,7 +40,9 @@ class Draft {
             $pilot_assignment[$pid] = $pilots[$i % 4];
         }
 
-        $deck = self::buildTierOneDeck();
+        $game_round = $state['game_round'] ?? 1;
+        $tier       = $game_round;           // draft 1 → T1, draft 2 → T2, etc.
+        $deck = self::buildDeck($tier);
         $hand1 = array_splice($deck, 0, 6);
         $hand2 = array_splice($deck, 0, 6);
 
@@ -194,12 +196,14 @@ class Draft {
                 $state['draft']['deck']       = $deck;
             } else {
                 // Draft complete → mech configuration
+                $empty_equip = ['head'=>[],'torso'=>[],'r_arm'=>[],'l_arm'=>[],'legs'=>[]];
+                $empty_mech  = ['slots' => ['head'=>null,'torso'=>null,'r_arm'=>null,'l_arm'=>null,'legs'=>null], 'equipment' => $empty_equip];
                 $state['phase'] = 'config';
                 $state['config'] = [
-                    'modules'   => $state['draft']['collected'],
-                    'mechs'     => [
-                        '1' => [['parts' => [], 'equipment' => []], ['parts' => [], 'equipment' => []]],
-                        '2' => [['parts' => [], 'equipment' => []], ['parts' => [], 'equipment' => []]],
+                    'modules' => $state['draft']['collected'],
+                    'mechs'   => [
+                        '1' => [$empty_mech, $empty_mech],
+                        '2' => [$empty_mech, $empty_mech],
                     ],
                 ];
                 unset($state['draft']);

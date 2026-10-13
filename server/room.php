@@ -17,10 +17,17 @@ $modules_raw   = json_decode(file_get_contents(__DIR__ . '/data/cards/modules.js
 $modules_by_id = [];
 foreach ($modules_raw as $m) {
     $modules_by_id[$m['id']] = [
-        'name'    => $m['name'],
-        'type'    => $m['type'],
-        'effects' => $m['effects'] ?? '',
-        'tier'    => (int)$m['tier'],
+        'name'                => $m['name'],
+        'type'                => $m['type'],
+        'effects'             => $m['effects'] ?? '',
+        'tier'                => (int)$m['tier'],
+        'hardpoints_offered'  => (int)($m['hardpoints_offered']  ?? 0),
+        'hardpoints_required' => (int)($m['hardpoints_required'] ?? 0),
+        'energy_min'          => isset($m['energy_min']) ? (int)$m['energy_min'] : null,
+        'energy_max'          => isset($m['energy_max']) ? (int)$m['energy_max'] : null,
+        'range'               => $m['range'] ?? null,
+        'aoe'                 => $m['aoe']   ?? null,
+        'parts'               => $m['parts'] ?? [],
     ];
 }
 
@@ -134,10 +141,16 @@ foreach ($pilots_raw['pilots'] as $p) {
                      x-text="'Round ' + (draftState?.round ?? '?') + ' · ' + (draftState?.step === 'initial' ? 'Pick from hand' : 'Pick passed cards')">
                 </div>
             </div>
+
+            <!-- Config phase info -->
+            <div class="sidebar-actions" x-show="phase === 'config'">
+                <div class="phase-label">Config Phase</div>
+                <div class="draft-round-label">Assign cards to your mechs</div>
+            </div>
         </aside>
 
         <!-- ── Main area ──────────────────────────────────────── -->
-        <div class="main-area" :class="{ 'draft-mode': phase === 'draft' }">
+        <div class="main-area" :class="{ 'draft-mode': phase === 'draft', 'config-mode': phase === 'config' }">
 
             <!-- Draft panel (visible during draft phase) -->
             <div class="draft-panel" x-show="phase === 'draft'">
@@ -166,13 +179,24 @@ foreach ($pilots_raw['pilots'] as $p) {
                         <div class="module-card"
                              :class="cardClass(idx)"
                              @click="draftPick(idx)">
-                            <div class="card-name" x-text="cardInfo(cardId)?.name ?? cardId"></div>
+                            <div class="card-top">
+                                <div class="card-name" x-text="cardInfo(cardId)?.name ?? cardId"></div>
+                                <div class="card-hp" x-html="hardpointIcons(cardInfo(cardId))"></div>
+                            </div>
                             <div class="card-meta">
                                 <span class="card-type-badge" :class="'type-' + (cardInfo(cardId)?.type ?? '')"
                                       x-text="cardInfo(cardId)?.type"></span>
                                 <span class="card-tier" x-text="'T' + (cardInfo(cardId)?.tier ?? '')"></span>
                             </div>
                             <div class="card-effects" x-text="cardInfo(cardId)?.effects"></div>
+                            <div class="card-aoe" x-show="cardInfo(cardId)?.aoe"
+                                 x-text="cardInfo(cardId)?.aoe === 'tile' ? '+entire tile' : '+neighboring tiles'"></div>
+                            <div class="card-energy" x-show="cardInfo(cardId)?.energy_max"
+                                 x-html="energySquaresHtml(cardInfo(cardId))"></div>
+                            <div class="card-range" x-show="cardInfo(cardId)?.range"
+                                 x-html="rangeHtml(cardInfo(cardId))"></div>
+                            <div class="card-parts"
+                                 x-text="(cardInfo(cardId)?.parts ?? []).join(' · ').toUpperCase()"></div>
                             <div class="card-pick-label" x-show="isMyPick(idx)">Selected</div>
                             <div class="card-pick-label teammate" x-show="isTeammatePick(idx)">Teammate</div>
                         </div>
@@ -186,17 +210,138 @@ foreach ($pilots_raw['pilots'] as $p) {
                 <div class="card-grid card-grid-sm" x-show="(draftState?.collected?.mine?.length ?? 0) > 0">
                     <template x-for="(cardId, idx) in (draftState?.collected?.mine ?? [])" :key="idx">
                         <div class="module-card collected">
-                            <div class="card-name" x-text="cardInfo(cardId)?.name ?? cardId"></div>
+                            <div class="card-top">
+                                <div class="card-name" x-text="cardInfo(cardId)?.name ?? cardId"></div>
+                                <div class="card-hp" x-html="hardpointIcons(cardInfo(cardId))"></div>
+                            </div>
                             <div class="card-meta">
                                 <span class="card-type-badge" :class="'type-' + (cardInfo(cardId)?.type ?? '')"
                                       x-text="cardInfo(cardId)?.type"></span>
                             </div>
                             <div class="card-effects" x-text="cardInfo(cardId)?.effects"></div>
+                            <div class="card-aoe" x-show="cardInfo(cardId)?.aoe"
+                                 x-text="cardInfo(cardId)?.aoe === 'tile' ? '+entire tile' : '+neighboring tiles'"></div>
+                            <div class="card-energy" x-show="cardInfo(cardId)?.energy_max"
+                                 x-html="energySquaresHtml(cardInfo(cardId))"></div>
+                            <div class="card-range" x-show="cardInfo(cardId)?.range"
+                                 x-html="rangeHtml(cardInfo(cardId))"></div>
+                            <div class="card-parts"
+                                 x-text="(cardInfo(cardId)?.parts ?? []).join(' · ').toUpperCase()"></div>
+                        </div>
+                    </template>
+                </div>
+
+                <!-- Mech preview (draft phase) -->
+                <div class="draft-section-label" style="margin-top:0.5rem">Mech Preview</div>
+                <div class="mech-previews">
+                    <template x-for="mechIdx in [0, 1]" :key="mechIdx">
+                        <div class="mech-outline">
+                            <img :src="'images/ulysses' + capFirst(mechPilotColor(mechIdx)) + '.png'"
+                                 class="mech-img" alt="Mech">
+                            <div class="mech-label" x-text="mechLabel(mechIdx)"></div>
                         </div>
                     </template>
                 </div>
 
             </div><!-- /.draft-panel -->
+
+            <!-- Config panel (visible during config phase) -->
+            <div class="config-panel" x-show="phase === 'config'">
+
+                <div class="draft-status-bar">
+                    <div class="phase-label" style="font-size:0.9rem">Mech Configuration</div>
+                    <div class="config-hint" x-show="!selectedCard">Select a card from the pool, then click a slot to assign it</div>
+                    <div class="config-hint selected" x-show="selectedCard">
+                        <strong x-text="cardInfo(selectedCard)?.name"></strong> selected — click a slot or click again to deselect
+                    </div>
+                </div>
+
+                <!-- Available cards pool -->
+                <div class="draft-section-label">
+                    Available Cards (<span x-text="configAvailable().length"></span>)
+                </div>
+                <div class="card-grid card-grid-sm" x-show="configAvailable().length > 0">
+                    <template x-for="cardId in configAvailable()" :key="cardId">
+                        <div class="module-card"
+                             :class="{ 'card-mine': selectedCard === cardId }"
+                             @click="configSelectCard(cardId)">
+                            <div class="card-top">
+                                <div class="card-name" x-text="cardInfo(cardId)?.name ?? cardId"></div>
+                                <div class="card-hp" x-html="hardpointIcons(cardInfo(cardId))"></div>
+                            </div>
+                            <div class="card-meta">
+                                <span class="card-type-badge" :class="'type-' + (cardInfo(cardId)?.type ?? '')"
+                                      x-text="cardInfo(cardId)?.type"></span>
+                            </div>
+                            <div class="card-effects" x-text="cardInfo(cardId)?.effects"></div>
+                            <div class="card-parts"
+                                 x-text="(cardInfo(cardId)?.parts ?? []).join(' · ').toUpperCase()"></div>
+                        </div>
+                    </template>
+                </div>
+                <div class="config-empty-pool" x-show="configAvailable().length === 0">All cards assigned</div>
+
+                <!-- Mechs -->
+                <div class="draft-section-label" style="margin-top:0.25rem">Your Mechs</div>
+                <div class="mechs-row">
+                    <template x-for="(mech, mechIdx) in (configState?.mechs ?? [])" :key="mechIdx">
+                        <div class="mech-config-card">
+                            <div class="mech-config-header">
+                                <img :src="'images/ulysses' + capFirst(mechPilotColor(mechIdx)) + '.png'"
+                                     class="mech-img-sm" alt="Mech">
+                                <div class="mech-config-info">
+                                    <div class="mech-title" x-text="mechLabel(mechIdx)"></div>
+                                    <div class="mech-hp-bar">
+                                        <span class="mech-hp-used" x-text="mech.hp_used"></span>
+                                        <span class="mech-hp-sep">/</span>
+                                        <span class="mech-hp-total" x-text="mech.hp_total"></span>
+                                        <span class="mech-hp-label"> HP used</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Part slots + per-slot equipment -->
+                            <div class="mech-slots">
+                                <template x-for="slot in ['head','torso','r_arm','l_arm','legs']" :key="slot">
+                                    <div class="mech-slot-group">
+                                        <!-- Part row -->
+                                        <div class="mech-slot"
+                                             :class="slotClass(mech, slot)"
+                                             @click="configPartClick(mechIdx, slot, mech.slots[slot])">
+                                            <div class="slot-label" x-text="slotLabel(slot)"></div>
+                                            <div class="slot-content"
+                                                 x-text="mech.slots[slot] ? (cardInfo(mech.slots[slot])?.name ?? mech.slots[slot]) : slotDefault(slot)">
+                                            </div>
+                                            <div class="slot-hp"
+                                                 x-show="(mech.slot_hp?.[slot]?.available ?? 0) > 0"
+                                                 :class="{ 'no-free': slotHpFree(mech, slot) === 0 }"
+                                                 x-text="slotHpFree(mech, slot) + '\u2665 HP'">
+                                            </div>
+                                        </div>
+                                        <!-- Equipment attached to this slot -->
+                                        <div class="slot-equip-row"
+                                             x-show="(mech.slot_hp?.[slot]?.available ?? 0) > 0">
+                                            <template x-for="(eqId, ei) in (mech.equipment?.[slot] ?? [])" :key="ei">
+                                                <div class="equip-tag"
+                                                     @click.stop="configAssign(mechIdx, slot, eqId)">
+                                                    <span x-text="cardInfo(eqId)?.name ?? eqId"></span>
+                                                    <span class="equip-remove">×</span>
+                                                </div>
+                                            </template>
+                                            <div class="equip-drop-zone"
+                                                 x-show="selectedCard && cardInfo(selectedCard)?.type === 'equipment' && slotAcceptsEquip(slot, cardInfo(selectedCard), mech)"
+                                                 @click.stop="configEquipAdd(mechIdx, slot)">
+                                                + Add
+                                            </div>
+                                        </div>
+                                    </div>
+                                </template>
+                            </div>
+                        </div>
+                    </template>
+                </div>
+
+            </div><!-- /.config-panel -->
 
             <!-- Chat panel -->
             <div class="chat-panel">
@@ -249,6 +394,8 @@ function roomApp() {
         tab:         'global',
         chatDraft:   '',
         draftState:  null,
+        configState: null,
+        selectedCard: null,
         error:       '',
         copyLabel:   'Copy Link',
 
@@ -285,8 +432,11 @@ function roomApp() {
             catch { this.error = 'Poll error: invalid server response'; return; }
             if (!data.ok) { this.error = data.error; return; }
 
-            this.roomState  = data.room;
-            this.draftState = data.draft;
+            const prevPhase = this.phase;
+            this.roomState   = data.room;
+            this.draftState  = data.draft;
+            this.configState = data.config;
+            if (this.phase !== prevPhase) this.selectedCard = null;
 
             let chatChanged = false;
             const newGlobal = data.chat.global.filter(m => m.seq > this.seenGlobal);
@@ -413,6 +563,32 @@ function roomApp() {
 
         cardInfo(id) { return MODULES[id] ?? null; },
 
+        hardpointIcons(card) {
+            if (!card) return '';
+            const isPart = card.type === 'part';
+            const count  = isPart ? card.hardpoints_offered : card.hardpoints_required;
+            if (!count) return '';
+            const cls = isPart ? 'hp-offered' : 'hp-required';
+            return Array.from({length: count}, () => `<span class="hp-hex ${cls}"></span>`).join('');
+        },
+
+        energySquaresHtml(card) {
+            if (!card || !card.energy_max) return '';
+            return Array.from({length: card.energy_max}, (_, i) =>
+                `<span class="energy-sq${i < card.energy_min ? ' filled' : ''}"></span>`
+            ).join('');
+        },
+
+        rangeHtml(card) {
+            if (!card || !card.range) return '';
+            const cells = [1,2,3,4,5].map(n =>
+                card.range.includes(String(n))
+                    ? `<span class="range-n">${n}</span>`
+                    : `<span class="range-dot">·</span>`
+            );
+            return `[${cells.join('')}]`;
+        },
+
         isMyPick(pos) {
             return (this.draftState?.player_picks?.[this.playerId] ?? []).includes(pos);
         },
@@ -468,6 +644,106 @@ function roomApp() {
                 && ps.filter(p => p.team === 1).length >= 1
                 && ps.filter(p => p.team === 2).length >= 1
                 && ps.every(p => p.team !== null);
+        },
+
+        // ── Mech helpers ─────────────────────────────────────────
+
+        capFirst(s) { return s ? s.charAt(0).toUpperCase() + s.slice(1) : ''; },
+
+        mechPilotColor(mechIdx) {
+            const players = this.playersOnTeam(this.myTeam);
+            return (players[mechIdx] ?? players[0])?.pilot ?? 'blue';
+        },
+
+        mechLabel(mechIdx) {
+            const players = this.playersOnTeam(this.myTeam);
+            const player  = players[mechIdx] ?? players[0];
+            return player ? player.name + "'s Mech" : 'Mech ' + (mechIdx + 1);
+        },
+
+        slotLabel(slot) {
+            return { head: 'Head', torso: 'Torso', r_arm: 'R Arm', l_arm: 'L Arm', legs: 'Legs' }[slot] ?? slot;
+        },
+
+        slotDefault(slot) {
+            return slot === 'head' ? '— (empty)' : 'Default (1 HP)';
+        },
+
+        slotClass(mech, slot) {
+            const filled    = mech.slots[slot] != null;
+            const card      = this.selectedCard ? this.cardInfo(this.selectedCard) : null;
+            const canAccept = card && card.type === 'part' && this.slotAcceptsCard(slot, card);
+            return {
+                'slot-filled':    filled,
+                'slot-empty':     !filled,
+                'slot-highlight': !filled && !!canAccept,
+                'slot-no-default':slot === 'head' && !filled,
+            };
+        },
+
+        slotAcceptsCard(slot, card) {
+            const parts = card.parts ?? [];
+            if (!parts.length) return true;  // no parts restriction: accept anywhere
+            if (slot === 'r_arm' || slot === 'l_arm') return parts.includes('arm');
+            return parts.includes(slot);
+        },
+
+        // ── Config actions ───────────────────────────────────────
+
+        configAvailable() {
+            if (!this.configState) return [];
+            const all      = this.configState.modules;
+            const assigned = new Set();
+            for (const mech of this.configState.mechs) {
+                for (const v of Object.values(mech.slots)) { if (v) assigned.add(v); }
+                for (const slotEquip of Object.values(mech.equipment ?? {})) {
+                    for (const c of slotEquip) assigned.add(c);
+                }
+            }
+            return all.filter(id => !assigned.has(id));
+        },
+
+        configSelectCard(cardId) {
+            this.selectedCard = this.selectedCard === cardId ? null : cardId;
+        },
+
+        // Click on the part row: assign selected part, or unassign existing part
+        configPartClick(mechIdx, slot, existingPartId) {
+            if (this.selectedCard && this.cardInfo(this.selectedCard)?.type === 'part') {
+                this.configAssign(mechIdx, slot, this.selectedCard);
+                this.selectedCard = null;
+            } else if (existingPartId && !this.selectedCard) {
+                this.configAssign(mechIdx, slot, existingPartId);
+            }
+        },
+
+        // Click on the "+ Add" drop zone: attach selected equipment to this slot
+        configEquipAdd(mechIdx, slot) {
+            if (this.selectedCard && this.cardInfo(this.selectedCard)?.type === 'equipment') {
+                this.configAssign(mechIdx, slot, this.selectedCard);
+                this.selectedCard = null;
+            }
+        },
+
+        slotHpFree(mech, slot) {
+            const hp = mech.slot_hp?.[slot];
+            return hp ? hp.available - hp.used : 0;
+        },
+
+        slotAcceptsEquip(slot, card, mech) {
+            if (!card || !this.slotAcceptsCard(slot, card)) return false;
+            const free = this.slotHpFree(mech, slot);
+            return free >= (card.hardpoints_required ?? 0);
+        },
+
+        async configAssign(mechIdx, slot, cardId) {
+            const fd = new FormData();
+            fd.append('room_id',  this.roomId);
+            fd.append('mech_idx', mechIdx);
+            fd.append('slot',     slot);
+            fd.append('card_id',  cardId);
+            await fetch('api/config_assign.php', { method: 'POST', body: fd });
+            await this.poll();
         },
 
     };

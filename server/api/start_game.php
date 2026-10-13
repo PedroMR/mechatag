@@ -39,6 +39,9 @@ if (count($teams_with_players) < 2) {
     exit;
 }
 
-FileStore::update(Room::statePath($room_id), fn($s) => Draft::start($s));
+FileStore::update(Room::statePath($room_id), function ($s) {
+    $s['game_round'] = 1;
+    return Draft::start($s);
+});
 
 echo json_encode(['ok' => true]);
