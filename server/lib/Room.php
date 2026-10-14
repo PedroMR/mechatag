@@ -179,6 +179,7 @@ class Room {
             'phase'     => $state['phase'],
             'victories' => $state['victories'],
             'game_winner' => $state['game_winner'] ?? null,
+            'game_round'  => $state['game_round'] ?? 1,
             'players'   => $players,
             'pilots'    => $state['pilots'] ?? null,  // {'1': ['blue','green'], '2': ['purple','black']}
         ];

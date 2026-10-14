@@ -945,6 +945,7 @@ input[type=text]:disabled { opacity: 0.4; cursor: not-allowed; }
 .fight-result.team-2 .fight-result-title { color: var(--team2); }
 .fight-result-detail { font-size: 0.8rem; color: var(--muted); }
 .fight-result-score { font-size: 0.85rem; font-weight: 600; }
+.fight-next-round { align-self: flex-start; margin-top: 0.35rem; }
 
 /* Pending choice */
 

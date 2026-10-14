@@ -30,10 +30,10 @@ class Draft {
 
     /**
      * Transition a room from lobby → draft.
-     * Assigns pilots randomly, deals the first two hands.
+     * Assigns pilots randomly, builds the game's tier decks, deals the first hands.
      */
     public static function start(array $state): array {
-        // Assign 4 pilot colors to the 4 mechs: 2 per team
+        // Assign 4 pilot colors to the 4 mechs: 2 per team (kept for the whole game)
         $pilots = ['blue', 'green', 'purple', 'black'];
         shuffle($pilots);
         $state['pilots'] = [
@@ -41,23 +41,99 @@ class Draft {
             '2' => [$pilots[2], $pilots[3]],
         ];
 
-        $game_round = $state['game_round'] ?? 1;
-        $tier       = $game_round;
-        $deck = self::buildDeck($tier);
-        $hand1 = array_splice($deck, 0, 6);
-        $hand2 = array_splice($deck, 0, 6);
+        $state['decks'] = [
+            't1'      => self::buildDeck(1),
+            't2'      => self::buildDeck(2),
+            'discard' => [],
+        ];
 
+        return self::beginDraft($state);
+    }
+
+    /**
+     * After a fight: start the next round's draft. Teams keep their modules
+     * and mech layouts; the fight state (damage, energy, positions) is dropped.
+     */
+    public static function nextRound(array $state): array {
+        if (($state['phase'] ?? '') !== 'fight' || empty($state['fight']['result'])) return $state;
+        if (!empty($state['game_winner'])) return $state;
+
+        // Rooms whose first fight started before decks/modules were kept
+        if (!isset($state['decks'])) {
+            $owned = [];
+            foreach ($state['fight']['mechs'] as $mechs) {
+                foreach ($mechs as $m) {
+                    foreach ($m['slots'] as $id) if ($id) $owned[] = explode(':', $id)[0];
+                    foreach ($m['equipment'] as $eqs) foreach ($eqs as $id) $owned[] = explode(':', $id)[0];
+                }
+            }
+            $t1 = self::buildDeck(1);
+            foreach ($owned as $id) {
+                $i = array_search($id, $t1, true);
+                if ($i !== false) array_splice($t1, $i, 1);
+            }
+            $state['decks'] = ['t1' => $t1, 't2' => self::buildDeck(2), 'discard' => []];
+        }
+        if (!isset($state['owned'])) {
+            foreach ($state['fight']['mechs'] as $tk => $mechs) {
+                $state['owned'][(string)$tk] = [];
+                $state['last_mechs'][(string)$tk] = [];
+                foreach ($mechs as $m) {
+                    foreach ($m['slots'] as $id) if ($id) $state['owned'][(string)$tk][] = $id;
+                    foreach ($m['equipment'] as $eqs) foreach ($eqs as $id) $state['owned'][(string)$tk][] = $id;
+                    $state['last_mechs'][(string)$tk][] = ['slots' => $m['slots'], 'equipment' => $m['equipment']];
+                }
+            }
+        }
+
+        $state['game_round'] = ($state['game_round'] ?? 1) + 1;
+        unset($state['fight']);
+        return self::beginDraft($state);
+    }
+
+    private static function beginDraft(array $state): array {
         $state['phase'] = 'draft';
-        $state['draft']  = [
+        $state['draft'] = [
             'round'        => 1,
             'step'         => 'initial',
-            'deck'         => $deck,
-            'hands'        => ['1' => $hand1, '2' => $hand2],
+            'hands'        => ['1' => self::drawHand($state), '2' => self::drawHand($state)],
             'player_picks' => [],   // player_id → [pos, ...]
             'collected'    => ['1' => [], '2' => []],
         ];
-
         return $state;
+    }
+
+    /**
+     * Draw a 6-card hand from the game's decks (by reference).
+     * First round: 6 Tier-I. Later rounds: 3 Tier-I + 3 Tier-II.
+     * Tier-I shortfalls come from the discards, then Tier-II.
+     */
+    private static function drawHand(array &$state): array {
+        $first = ($state['game_round'] ?? 1) <= 1;
+        $want  = $first ? ['t1' => 6, 't2' => 0] : ['t1' => 3, 't2' => 3];
+        // Drafts started before the game-wide decks existed kept their deck in the draft
+        $state['decks'] ??= [
+            't1'      => $state['draft']['deck'] ?? self::buildDeck(1),
+            't2'      => self::buildDeck(2),
+            'discard' => [],
+        ];
+        unset($state['draft']['deck']);
+        $d     = &$state['decks'];
+
+        $hand = array_splice($d['t1'], 0, $want['t1']);
+        if (count($hand) < $want['t1']) {
+            shuffle($d['discard']);
+            $hand = array_merge($hand, array_splice($d['discard'], 0, $want['t1'] - count($hand)));
+        }
+        $hand = array_merge($hand, array_splice($d['t2'], 0, 6 - count($hand)));
+
+        // Still short (very long games): take whatever is left anywhere
+        foreach (['t1', 'discard'] as $k) {
+            if (count($hand) < 6) $hand = array_merge($hand, array_splice($d[$k], 0, 6 - count($hand)));
+        }
+        unset($d);
+        shuffle($hand);
+        return $hand;
     }
 
     // -------------------------------------------------------------------------
@@ -184,26 +260,33 @@ class Draft {
         } else { // 'passed'
             // Remaining cards are discarded (no swap)
             $state['draft']['player_picks'] = [];
+            foreach ([self::remainingCards($hand1, $picks1), self::remainingCards($hand2, $picks2)] as $left) {
+                foreach ($left as $cid) $state['decks']['discard'][] = $cid;
+            }
 
             if ($state['draft']['round'] < 2) {
                 // Start round 2: deal fresh hands from the deck
                 $state['draft']['round']++;
                 $state['draft']['step'] = 'initial';
 
-                $deck = $state['draft']['deck'];
-                $state['draft']['hands']['1'] = array_splice($deck, 0, 6);
-                $state['draft']['hands']['2'] = array_splice($deck, 0, 6);
-                $state['draft']['deck']       = $deck;
+                $state['draft']['hands']['1'] = self::drawHand($state);
+                $state['draft']['hands']['2'] = self::drawHand($state);
             } else {
                 // Draft complete → mech configuration
                 $empty_equip = ['head'=>[],'torso'=>[],'r_arm'=>[],'l_arm'=>[],'legs'=>[]];
                 $empty_mech  = ['slots' => ['head'=>null,'torso'=>null,'r_arm'=>null,'l_arm'=>null,'legs'=>null], 'equipment' => $empty_equip];
                 // Give each collected card a unique instance key (e.g. "small_laser:0", "small_laser:1")
-                // so copies of the same card can be assigned independently.
+                // so copies of the same card can be assigned independently. Modules kept from
+                // earlier rounds keep their keys; new copies continue the numbering.
                 $modules_keyed = [];
-                foreach ($state['draft']['collected'] as $tk => $cards) {
+                foreach (['1', '2'] as $tk) {
+                    $modules_keyed[$tk] = $state['owned'][$tk] ?? [];
                     $seen = [];
-                    foreach ($cards as $cid) {
+                    foreach ($modules_keyed[$tk] as $key) {
+                        $cid = explode(':', $key)[0];
+                        $seen[$cid] = max($seen[$cid] ?? 0, (int)explode(':', $key)[1] + 1);
+                    }
+                    foreach ($state['draft']['collected'][$tk] as $cid) {
                         $n = $seen[$cid] ?? 0;
                         $modules_keyed[$tk][] = $cid . ':' . $n;
                         $seen[$cid] = $n + 1;
@@ -214,8 +297,8 @@ class Draft {
                 $state['config'] = [
                     'modules' => $modules_keyed,
                     'mechs'   => [
-                        '1' => [$empty_mech, $empty_mech],
-                        '2' => [$empty_mech, $empty_mech],
+                        '1' => $state['last_mechs']['1'] ?? [$empty_mech, $empty_mech],
+                        '2' => $state['last_mechs']['2'] ?? [$empty_mech, $empty_mech],
                     ],
                     'ready'   => ['1' => false, '2' => false],
                 ];
@@ -253,6 +336,7 @@ class Draft {
 
         return [
             'round'          => $state['draft']['round'],
+            'game_round'     => $state['game_round'] ?? 1,
             'step'           => $state['draft']['step'],
             'hand'           => $state['draft']['hands'][(string)$team] ?? [],
             'player_picks'   => $state['draft']['player_picks'],

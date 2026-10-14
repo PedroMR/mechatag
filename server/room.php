@@ -135,7 +135,7 @@ foreach ($pilots_raw['pilots'] as $p) {
             <div class="sidebar-actions" x-show="phase === 'draft'">
                 <div class="phase-label">Draft Phase</div>
                 <div class="draft-round-label"
-                     x-text="'Round ' + (draftState?.round ?? '?') + ' · ' + (draftState?.step === 'initial' ? 'Pick from hand' : 'Pick passed cards')">
+                     x-text="'Round ' + (draftState?.game_round ?? 1) + ' draft · Hand ' + (draftState?.round ?? '?') + ' · ' + (draftState?.step === 'initial' ? 'Pick from hand' : 'Pick passed cards')">
                 </div>
             </div>
 
@@ -408,6 +408,9 @@ foreach ($pilots_raw['pilots'] as $p) {
                     <div class="fight-result-detail" x-text="fightResultDetail()"></div>
                     <div class="fight-result-score"
                          x-text="'Score: Team 1 ' + (roomState?.victories?.['1'] ?? 0) + ' – ' + (roomState?.victories?.['2'] ?? 0) + ' Team 2'"></div>
+                    <button class="fight-next-round" x-show="!roomState?.game_winner" @click="nextRound">
+                        Start Round <span x-text="(roomState?.game_round ?? 1) + 1"></span>
+                    </button>
                 </div>
 
                 <!-- Pending choice: charge modules (CORE / generator) -->
@@ -933,6 +936,14 @@ function roomApp() {
             if (!card || !this.slotAcceptsCard(slot, card)) return false;
             const free = this.slotHardpFree(mech, slot);
             return free >= (card.hardpoints_required ?? 0);
+        },
+
+        async nextRound() {
+            const fd = new FormData();
+            fd.append('room_id', this.roomId);
+            const res = await fetch('api/next_round.php', { method: 'POST', body: fd }).then(r => r.json());
+            if (!res.ok) alert(res.error);
+            await this.poll();
         },
 
         async fightFlip() {
