@@ -180,7 +180,7 @@ foreach ($pilots_raw['pilots'] as $p) {
                 <div class="card-grid">
                     <template x-for="(cardId, idx) in (draftState?.hand ?? [])" :key="idx">
                         <div class="module-card"
-                             :class="cardClass(idx)"
+                             :class="[cardClass(idx), 'tier-card-' + (cardInfo(cardId)?.tier ?? '')]"
                              @click="draftPick(idx)">
                             <div class="card-top">
                                 <div class="card-name" x-text="cardInfo(cardId)?.name ?? cardId"></div>
@@ -189,7 +189,7 @@ foreach ($pilots_raw['pilots'] as $p) {
                             <div class="card-meta">
                                 <span class="card-type-badge" :class="'type-' + (cardInfo(cardId)?.type ?? '')"
                                       x-text="cardInfo(cardId)?.type"></span>
-                                <span class="card-tier" x-text="'T' + (cardInfo(cardId)?.tier ?? '')"></span>
+                                <span class="card-tier" :class="'tier-' + (cardInfo(cardId)?.tier ?? '')" x-text="'T' + (cardInfo(cardId)?.tier ?? '')"></span>
                             </div>
                             <div class="card-effects" x-text="cardInfo(cardId)?.effects"></div>
                             <div class="card-aoe" x-show="cardInfo(cardId)?.aoe"
@@ -212,7 +212,7 @@ foreach ($pilots_raw['pilots'] as $p) {
                 </div>
                 <div class="card-grid card-grid-sm" x-show="(draftState?.collected?.mine?.length ?? 0) > 0">
                     <template x-for="(cardId, idx) in (draftState?.collected?.mine ?? [])" :key="idx">
-                        <div class="module-card collected">
+                        <div class="module-card collected" :class="'tier-card-' + (cardInfo(cardId)?.tier ?? '')">
                             <div class="card-top">
                                 <div class="card-name" x-text="cardInfo(cardId)?.name ?? cardId"></div>
                                 <div class="card-hp" x-html="hardpointIcons(cardInfo(cardId))"></div>
@@ -220,7 +220,7 @@ foreach ($pilots_raw['pilots'] as $p) {
                             <div class="card-meta">
                                 <span class="card-type-badge" :class="'type-' + (cardInfo(cardId)?.type ?? '')"
                                       x-text="cardInfo(cardId)?.type"></span>
-                                <span class="card-tier" x-text="'T' + (cardInfo(cardId)?.tier ?? '')"></span>
+                                <span class="card-tier" :class="'tier-' + (cardInfo(cardId)?.tier ?? '')" x-text="'T' + (cardInfo(cardId)?.tier ?? '')"></span>
                             </div>
                             <div class="card-effects" x-text="cardInfo(cardId)?.effects"></div>
                             <div class="card-aoe" x-show="cardInfo(cardId)?.aoe"
@@ -287,7 +287,7 @@ foreach ($pilots_raw['pilots'] as $p) {
                         </div>
                         <div class="card-grid card-grid-sm" x-show="side.mine && (draftState?.unassigned?.length ?? 0) > 0">
                             <template x-for="(cardId, idx) in (draftState?.unassigned ?? [])" :key="idx">
-                                <div class="module-card collected">
+                                <div class="module-card collected" :class="'tier-card-' + (cardInfo(cardId)?.tier ?? '')">
                                     <div class="card-top">
                                         <div class="card-name" x-text="cardInfo(cardId)?.name ?? cardId"></div>
                                         <div class="card-hp" x-html="hardpointIcons(cardInfo(cardId))"></div>
@@ -295,7 +295,7 @@ foreach ($pilots_raw['pilots'] as $p) {
                                     <div class="card-meta">
                                         <span class="card-type-badge" :class="'type-' + (cardInfo(cardId)?.type ?? '')"
                                               x-text="cardInfo(cardId)?.type"></span>
-                                        <span class="card-tier" x-text="'T' + (cardInfo(cardId)?.tier ?? '')"></span>
+                                        <span class="card-tier" :class="'tier-' + (cardInfo(cardId)?.tier ?? '')" x-text="'T' + (cardInfo(cardId)?.tier ?? '')"></span>
                                     </div>
                                     <div class="card-effects" x-text="cardInfo(cardId)?.effects"></div>
                                     <div class="card-aoe" x-show="cardInfo(cardId)?.aoe"
@@ -341,7 +341,7 @@ foreach ($pilots_raw['pilots'] as $p) {
                             <div class="card-meta">
                                 <span class="card-type-badge" :class="'type-' + (cardInfo(cardId)?.type ?? '')"
                                       x-text="cardInfo(cardId)?.type"></span>
-                                <span class="card-tier" x-text="'T' + (cardInfo(cardId)?.tier ?? '')"></span>
+                                <span class="card-tier" :class="'tier-' + (cardInfo(cardId)?.tier ?? '')" x-text="'T' + (cardInfo(cardId)?.tier ?? '')"></span>
                             </div>
                             <div class="card-effects" x-text="cardInfo(cardId)?.effects"></div>
                             <div class="card-parts"
@@ -376,7 +376,7 @@ foreach ($pilots_raw['pilots'] as $p) {
                                             <div class="slot-content"
                                                  x-text="mech.slots[slot] ? (cardInfo(mech.slots[slot])?.name ?? mech.slots[slot]) : slotDefault(slot)">
                                             </div>
-                                            <span class="card-tier" x-show="cardInfo(mech.slots[slot])?.tier"
+                                            <span class="card-tier" :class="'tier-' + (cardInfo(mech.slots[slot])?.tier ?? '')" x-show="cardInfo(mech.slots[slot])?.tier"
                                                   x-text="'T' + (cardInfo(mech.slots[slot])?.tier ?? '')"></span>
                                             <div class="slot-hardp"
                                                  x-show="(mech.slot_hp?.[slot]?.available ?? 0) > 0"
@@ -391,7 +391,7 @@ foreach ($pilots_raw['pilots'] as $p) {
                                                 <div class="equip-tag"
                                                      @click.stop="configAssign(mechIdx, slot, eqId)">
                                                     <span x-text="cardInfo(eqId)?.name ?? eqId"></span>
-                                                    <span class="card-tier" x-text="'T' + (cardInfo(eqId)?.tier ?? '')"></span>
+                                                    <span class="card-tier" :class="'tier-' + (cardInfo(eqId)?.tier ?? '')" x-text="'T' + (cardInfo(eqId)?.tier ?? '')"></span>
                                                     <span class="equip-remove">×</span>
                                                 </div>
                                             </template>
@@ -480,7 +480,37 @@ foreach ($pilots_raw['pilots'] as $p) {
 
                 <!-- Pending choice: charge modules (CORE / generator) -->
                 <div class="fight-choice" x-show="fightState?.pending">
-                    <template x-if="fightState?.pending && myTeam === Number(fightState.pending.team)">
+                    <!-- Defend: the attacked team picks shields (each costs its energy) -->
+                    <template x-if="fightState?.pending?.kind === 'defend' && myTeam === Number(fightState.pending.team)">
+                        <div>
+                            <div class="fight-choice-title">
+                                <span x-text="fightState.pending.hit.attacker + ' attacks ' + fightState.mechs[fightState.pending.team][fightState.pending.mech].pilot_name
+                                    + ' with ' + fightState.pending.hit.weapon + ': ' + fightState.pending.hit.dmg + ' ' + fightState.pending.hit.atk_type + ' damage'"></span>
+                            </div>
+                            <div class="fight-choice-sub" x-show="fightState.pending.free_def > 0"
+                                 x-text="'Already blocking ' + fightState.pending.free_def + ' with ' + fightState.pending.free_names.join(', ') + ' (free)'"></div>
+                            <div class="fight-choice-sub">Choose shields to use. Each one spends its energy cost.</div>
+                            <div class="fight-choice-options">
+                                <template x-for="id in fightState.pending.options" :key="id">
+                                    <button class="fight-module fight-choice-opt"
+                                            :class="{ picked: chargePicks.includes(id) }"
+                                            @click="toggleChargePick(id)"
+                                            @mouseenter="showCardPreview(id, $event)"
+                                            @mouseleave="hideCardPreview()">
+                                        <span x-text="(cardInfo(id)?.name ?? id) + ' · DEF ' + fightState.pending.details[id].def + ' · costs ' + fightState.pending.details[id].cost"></span>
+                                        <span class="fight-energy"
+                                              x-html="fightEnergyHtml(fightState.mechs[fightState.pending.team][fightState.pending.mech], id)"></span>
+                                    </button>
+                                </template>
+                            </div>
+                            <div class="fight-choice-sub" x-text="'Damage taken: ' + defendDamagePreview()"></div>
+                            <div class="fight-choice-actions">
+                                <button class="btn-sm" @click="fightChoose()" :disabled="chargePicks.length === 0">Use shields</button>
+                                <button class="btn-sm btn-ghost" @click="fightChoose(true)">Take the hit</button>
+                            </div>
+                        </div>
+                    </template>
+                    <template x-if="fightState?.pending?.kind === 'charge' && myTeam === Number(fightState.pending.team)">
                         <div>
                             <div class="fight-choice-title">
                                 <span x-text="fightState.pending.source"></span>:
@@ -510,7 +540,7 @@ foreach ($pilots_raw['pilots'] as $p) {
                     </template>
                     <div class="fight-choice-wait"
                          x-show="fightState?.pending && myTeam !== Number(fightState?.pending?.team)"
-                         x-text="'Waiting for Team ' + (fightState?.pending?.team ?? '') + ' to choose modules to charge…'"></div>
+                         x-text="'Waiting for Team ' + (fightState?.pending?.team ?? '') + (fightState?.pending?.kind === 'defend' ? ' to choose shields…' : ' to choose modules to charge…')"></div>
                 </div>
 
                 <!-- Arena board -->
@@ -545,8 +575,9 @@ foreach ($pilots_raw['pilots'] as $p) {
                                               style="width:10px;height:10px"></span>
                                         <span x-text="mech.pilot_name"></span>
                                         <span class="fight-mech-def"
-                                              x-show="mech.defense > 0"
-                                              x-text="'🛡' + mech.defense"></span>
+                                              x-show="mech.action_def"
+                                              :title="'Usable against attacks until ' + mech.pilot_name + ' plays another card'"
+                                              x-text="'🛡 DEF ' + (mech.action_def?.amount ?? '') + ' ' + (mech.action_def?.types ? mech.action_def.types.join('/') : 'any') + ' · ' + (mech.action_def?.card ?? '')"></span>
                                     </div>
                                     <div class="fight-hp-bar-wrap">
                                         <div class="fight-hp-bar"
@@ -603,7 +634,7 @@ foreach ($pilots_raw['pilots'] as $p) {
                 <div class="card-meta">
                     <span class="card-type-badge" :class="'type-' + (cardInfo(preview.id)?.type ?? '')"
                           x-text="cardInfo(preview.id)?.type"></span>
-                    <span class="card-tier" x-text="'T' + (cardInfo(preview.id)?.tier ?? '')"></span>
+                    <span class="card-tier" :class="'tier-' + (cardInfo(preview.id)?.tier ?? '')" x-text="'T' + (cardInfo(preview.id)?.tier ?? '')"></span>
                 </div>
                 <div class="card-effects" x-text="cardInfo(preview.id)?.effects"></div>
                 <div class="card-aoe" x-show="cardInfo(preview.id)?.aoe"
@@ -1053,6 +1084,13 @@ function roomApp() {
                 draw:       'Eliminations, damage and territory all tied.',
             }[r.decided_by];
             return `${how} ${by}`;
+        },
+
+        defendDamagePreview() {
+            const p = this.fightState?.pending;
+            if (p?.kind !== 'defend') return '';
+            const def = p.free_def + this.chargePicks.reduce((sum, id) => sum + (p.details[id]?.def ?? 0), 0);
+            return Math.max(0, p.hit.dmg - def) + ' of ' + p.hit.dmg;
         },
 
         toggleChargePick(id) {

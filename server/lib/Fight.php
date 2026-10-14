@@ -60,7 +60,6 @@ class Fight {
                     'pilot_name' => self::PILOT_NAMES[$pilot] ?? $pilot,
                     'hp'         => $max_hp,
                     'max_hp'     => $max_hp,
-                    'defense'    => 0,
                     'pos'        => self::START_POS[$tk],
                     'slots'      => $mech['slots'],
                     'equipment'  => $mech['equipment'],
@@ -211,6 +210,23 @@ class Fight {
         if (array_diff($ids, $pending['options']))            { $error = 'Invalid module';   return $state; }
 
         $modules_by_id = self::loadModules();
+
+        if ($pending['kind'] === 'defend') {
+            // Pay each chosen shield's energy and pool its DEF with the free ones
+            $def   = $pending['free_def'];
+            $names = $pending['free_names'];
+            $mech  = &$state['fight']['mechs'][$team][$pending['mech']];
+            foreach ($ids as $id) {
+                $mech['energy'][$id] -= $pending['details'][$id]['cost'];
+                $def    += $pending['details'][$id]['def'];
+                $names[] = $modules_by_id[self::baseId($id)]['name'] ?? $id;
+            }
+            unset($mech);
+            unset($state['fight']['pending']);
+            $state = self::applyHit($state, $pending['hit'], $def, $names);
+            return self::checkDeckEnd(self::runSteps($state));
+        }
+
         $mech  = &$state['fight']['mechs'][$team][$pending['mech']];
         $names = [];
         foreach ($ids as $id) {
@@ -241,6 +257,8 @@ class Fight {
         if ($team_key === null) return $state;
 
         $actions = self::parseEffect($card['effect']);
+        // Playing a new card forgoes the DEF of this pilot's previous card
+        unset($state['fight']['mechs'][$team_key][$mech_idx]['action_def']);
         $mech    = $state['fight']['mechs'][$team_key][$mech_idx];
 
         // Collect attack-type bonuses declared on this card
@@ -265,6 +283,7 @@ class Fight {
         }
 
         $state['fight']['turn'] = [
+            'card'    => $card['name'],
             'team'    => $team_key,
             'mech'    => $mech_idx,
             'bonuses' => $bonuses,
@@ -276,12 +295,13 @@ class Fight {
     /** Run queued steps until done or a step opens a player choice. */
     private static function runSteps(array $state): array {
         $modules_by_id = self::loadModules();
-        while (!empty($state['fight']['turn']['steps']) && empty($state['fight']['pending'])) {
-            $step  = array_shift($state['fight']['turn']['steps']);
-            $state = self::runStep($state, $step, $modules_by_id);
+        while (true) {
             foreach (['1', '2'] as $tk) {
                 if (self::teamWiped($state, $tk)) return self::endFight($state, 'wipe');
             }
+            if (empty($state['fight']['turn']['steps']) || !empty($state['fight']['pending'])) break;
+            $step  = array_shift($state['fight']['turn']['steps']);
+            $state = self::runStep($state, $step, $modules_by_id);
         }
         if (empty($state['fight']['pending'])) unset($state['fight']['turn']);
         return $state;
@@ -371,28 +391,24 @@ class Fight {
                         $state['fight']['mechs'][$team_key][$mech_idx]['energy'][$id] = $have - $cost;
                     }
 
-                    // Each AoE target is a separate attack, defended individually
+                    // Each AoE target is a separate attack, defended individually: queue one
+                    // hit per target ahead of the card's remaining steps
+                    $hits = [];
                     foreach ($targets as $tgt_idx) {
-                        $tgt       = &$state['fight']['mechs'][$opp_team][$tgt_idx];
-                        $tgt_name  = $tgt['pilot_name'];
-
-                        // Defense absorbs damage, then resets
-                        $absorbed  = min($tgt['defense'], $total_dmg);
-                        $actual    = $total_dmg - $absorbed;
-                        $tgt['defense'] = max(0, $tgt['defense'] - $absorbed);
-                        $tgt['hp']      = max(0, $tgt['hp'] - $actual);
-
-                        if ($absorbed > 0) {
-                            $state['fight']['log'][] = "$pilot_name attacks $tgt_name with $name, dealing $actual damage! ($absorbed blocked by defense)";
-                        } else {
-                            $state['fight']['log'][] = "$pilot_name attacks $tgt_name with $name, dealing $actual damage!";
-                        }
-
-                        if ($tgt['hp'] <= 0) {
-                            $state['fight']['log'][] = "⚡ $tgt_name's mech is destroyed!";
-                        }
-                        unset($tgt);
+                        $hits[] = [
+                            'type'     => 'hit',
+                            'team'     => $opp_team,
+                            'idx'      => $tgt_idx,
+                            'dmg'      => $total_dmg,
+                            'atk_type' => $atk['atk_type'],
+                            'attacker' => $pilot_name,
+                            'weapon'   => $name,
+                        ];
                     }
+                    array_unshift($state['fight']['turn']['steps'], ...$hits);
+
+                } elseif (self::parseModuleDef($effect)) {
+                    $state['fight']['log'][] = "$pilot_name's $name only works against incoming attacks.";
 
                 } elseif (!$a['is_part']) {
                     $state['fight']['log'][] = "$pilot_name uses $name.";
@@ -400,8 +416,19 @@ class Fight {
                 break;
 
             case 'defense':
-                $state['fight']['mechs'][$team_key][$mech_idx]['defense'] += $a['amount'];
-                $state['fight']['log'][] = "$pilot_name raises defenses (+{$a['amount']} DEF).";
+                // Action DEF: usable against attacks while it's this pilot's latest card
+                $card_name = $state['fight']['turn']['card'] ?? 'action';
+                $state['fight']['mechs'][$team_key][$mech_idx]['action_def'] = [
+                    'amount' => $a['amount'],
+                    'types'  => $a['types'],
+                    'card'   => $card_name,
+                ];
+                $types_lbl = $a['types'] ? implode('/', $a['types']) : 'any';
+                $state['fight']['log'][] = "$pilot_name readies $card_name: DEF {$a['amount']} ($types_lbl) until $pilot_name plays another card.";
+                break;
+
+            case 'hit':
+                $state = self::resolveHit($state, $a, $modules_by_id);
                 break;
 
             case 'core':
@@ -410,6 +437,99 @@ class Fight {
         }
 
         return $state;
+    }
+
+    /**
+     * One attack against one mech. Free DEFs (the target pilot's current action
+     * card, modules with no energy cost) apply automatically; if shields that
+     * cost energy could still help, the defending team chooses which to use.
+     */
+    private static function resolveHit(array $state, array $hit, array $modules_by_id): array {
+        $tgt = $state['fight']['mechs'][$hit['team']][$hit['idx']];
+        if ($tgt['hp'] <= 0) return $state;
+
+        $free_def   = 0;
+        $free_names = [];
+        $ad = $tgt['action_def'] ?? null;
+        if ($ad && self::defCovers($ad['types'], $hit['atk_type'])) {
+            $free_def    += $ad['amount'];
+            $free_names[] = $ad['card'];
+        }
+
+        $options = [];
+        $details = [];
+        foreach (self::mechModuleIds($tgt) as $id) {
+            $module = $modules_by_id[self::baseId($id)] ?? null;
+            $def    = $module ? self::parseModuleDef($module['effects'] ?? '') : null;
+            if (!$def || !self::defCovers($def['types'], $hit['atk_type'])) continue;
+            $cost = (int)($module['energy_min'] ?? 0);
+            if ($cost === 0) {
+                $free_def    += $def['amount'];
+                $free_names[] = $module['name'];
+            } elseif (($tgt['energy'][$id] ?? 0) >= $cost) {
+                $options[]    = $id;
+                $details[$id] = ['def' => $def['amount'], 'cost' => $cost];
+            }
+        }
+
+        if ($options && $hit['dmg'] > $free_def) {
+            $state['fight']['pending'] = [
+                'kind'       => 'defend',
+                'team'       => $hit['team'],
+                'mech'       => $hit['idx'],
+                'count'      => count($options),
+                'options'    => $options,
+                'details'    => $details,
+                'free_def'   => $free_def,
+                'free_names' => $free_names,
+                'hit'        => $hit,
+            ];
+            $state['fight']['log'][] = "{$hit['attacker']} attacks {$tgt['pilot_name']} with {$hit['weapon']} ({$hit['dmg']} {$hit['atk_type']}). {$tgt['pilot_name']} may use shields.";
+            return $state;
+        }
+
+        return self::applyHit($state, $hit, $free_def, $free_names);
+    }
+
+    private static function applyHit(array $state, array $hit, int $def, array $def_names): array {
+        $tgt = &$state['fight']['mechs'][$hit['team']][$hit['idx']];
+        $blocked = min($def, $hit['dmg']);
+        $actual  = $hit['dmg'] - $blocked;
+        $tgt['hp'] = max(0, $tgt['hp'] - $actual);
+        $punct = $actual < 3 ? '.' : '!';
+
+        $line = "{$hit['attacker']} attacks {$tgt['pilot_name']} with {$hit['weapon']}, dealing $actual damage";
+        if ($blocked > 0) $line .= " ($blocked blocked by " . implode(', ', $def_names) . ")";
+        $state['fight']['log'][] = $line . $punct;
+
+        if ($tgt['hp'] <= 0) {
+            $state['fight']['log'][] = "⚡ {$tgt['pilot_name']}'s mech is destroyed!";
+        }
+        unset($tgt);
+        return $state;
+    }
+
+    /** Ids of every module on a mech: parts, then equipment. */
+    private static function mechModuleIds(array $mech): array {
+        $ids = array_values(array_filter($mech['slots']));
+        foreach ($mech['equipment'] as $eqs) foreach ($eqs as $id) $ids[] = $id;
+        return $ids;
+    }
+
+    /** A module's DEF instruction, e.g. "DEF 2 PRJIMP" → ['amount' => 2, 'types' => ['PRJ','IMP']]. */
+    private static function parseModuleDef(string $effect): ?array {
+        if (!preg_match('/\bDEF\s+(\d+)(?:\s+([A-Za-z]+))?/', $effect, $m)) return null;
+        return ['amount' => (int)$m[1], 'types' => self::parseDefTypes($m[2] ?? null)];
+    }
+
+    /** "PRJIMP" → ['PRJ','IMP']; missing or "any" → null (defends against every type). */
+    private static function parseDefTypes(?string $types): ?array {
+        if ($types === null || $types === '' || strtolower($types) === 'any') return null;
+        return str_split(strtoupper($types), 3);
+    }
+
+    private static function defCovers(?array $types, string $atk_type): bool {
+        return $types === null || in_array($atk_type, $types, true);
     }
 
     /**
@@ -460,8 +580,8 @@ class Fight {
                 $actions[] = ['type' => 'activate', 'slot' => self::SLOT_MAP[$token]];
             } elseif (preg_match('/^(IMP|PRJ|LSR|EXP)\+(\d+)$/', $token, $m)) {
                 $actions[] = ['type' => 'bonus', 'atk_type' => $m[1], 'amount' => (int)$m[2]];
-            } elseif (preg_match('/^DEF\s+(\d+)$/', $token, $m)) {
-                $actions[] = ['type' => 'defense', 'amount' => (int)$m[1]];
+            } elseif (preg_match('/^DEF\s+(\d+)(?:\s+([A-Za-z]+))?$/', $token, $m)) {
+                $actions[] = ['type' => 'defense', 'amount' => (int)$m[1], 'types' => self::parseDefTypes($m[2] ?? null)];
             } elseif ($token === 'CORE') {
                 $actions[] = ['type' => 'core'];
             }

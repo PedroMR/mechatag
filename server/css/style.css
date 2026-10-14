@@ -11,6 +11,9 @@
     --team2:   #3080f0;
     --success: #30b860;
     --danger:  #d03040;
+    --tier1:   #8a96b0;
+    --tier2:   #2ec4b6;
+    --tier3:   #e0509a;
 }
 
 body {
@@ -419,9 +422,21 @@ input[type=text]:disabled { opacity: 0.4; cursor: not-allowed; }
 .type-equipment { background: #2a1a40; color: #a060d0; }
 
 .card-tier {
-    font-size: 0.65rem;
+    font-size: 0.62rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    padding: 0.05rem 0.3rem;
+    border-radius: 3px;
     color: var(--muted);
 }
+/* Tiers must be told apart at a glance: T1 quiet outline, T2/T3 solid colors */
+.card-tier.tier-1 { border: 1px solid var(--tier1); color: var(--tier1); }
+.card-tier.tier-2 { background: var(--tier2); color: #06201d; }
+.card-tier.tier-3 { background: var(--tier3); color: #fff; }
+
+/* Draft-screen cards: colored top stripe for the higher tiers */
+.module-card.tier-card-2 { border-top: 4px solid var(--tier2); }
+.module-card.tier-card-3 { border-top: 4px solid var(--tier3); }
 
 .card-effects {
     font-size: 0.75rem;
@@ -991,6 +1006,7 @@ input[type=text]:disabled { opacity: 0.4; cursor: not-allowed; }
 }
 .fight-choice-opt:disabled { opacity: 0.45; cursor: default; }
 .fight-choice-actions { display: flex; gap: 0.4rem; }
+.fight-choice-sub { font-size: 0.78rem; color: var(--muted); margin-bottom: 0.4rem; }
 .fight-choice-wait { font-size: 0.82rem; color: var(--muted); font-style: italic; }
 
 .fight-energy { display: inline-flex; gap: 2px; }
