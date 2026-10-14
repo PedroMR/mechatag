@@ -334,7 +334,26 @@ class Draft {
         if ($team === null) return null;
         $opp_team = $team === 1 ? 2 : 1;
 
+        // Modules kept from earlier rounds but not on a mech (private to the team)
+        $tk       = (string)$team;
+        $mechs    = $state['last_mechs'][$tk] ?? [];
+        $assigned = [];
+        foreach ($mechs as $m) {
+            foreach ($m['slots'] as $id) if ($id !== null) $assigned[] = $id;
+            foreach ($m['equipment'] as $eqs) foreach ($eqs as $id) $assigned[] = $id;
+        }
+        $unassigned = array_values(array_filter(
+            $state['owned'][$tk] ?? [],
+            fn($id) => !in_array($id, $assigned, true)
+        ));
+
+        // Mech layouts are public: both teams see each other's equipped mechs
+        $team_mechs = [];
+        foreach (['1', '2'] as $k) $team_mechs[$k] = $state['last_mechs'][$k] ?? [];
+
         return [
+            'team_mechs'     => $team_mechs,
+            'unassigned'     => $unassigned,
             'round'          => $state['draft']['round'],
             'game_round'     => $state['game_round'] ?? 1,
             'step'           => $state['draft']['step'],

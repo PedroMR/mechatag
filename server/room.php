@@ -174,7 +174,7 @@ foreach ($pilots_raw['pilots'] as $p) {
                 <div class="draft-section-label">
                     Your Hand
                     <span class="pick-hint" x-show="!draftState?.my_team_ready">
-                        — pick <strong x-text="picksNeeded"></strong>
+                        — pick <strong x-text="picksNeeded"></strong> as a team
                     </span>
                 </div>
                 <div class="card-grid">
@@ -235,17 +235,82 @@ foreach ($pilots_raw['pilots'] as $p) {
                     </template>
                 </div>
 
-                <!-- Mech preview (draft phase) -->
-                <div class="draft-section-label" style="margin-top:0.5rem">Mech Preview</div>
-                <div class="mech-previews">
-                    <template x-for="mechIdx in [0, 1]" :key="mechIdx">
-                        <div class="mech-outline">
-                            <img :src="'images/ulysses' + capFirst(mechPilotColor(mechIdx)) + '.png'"
-                                 class="mech-img" alt="Mech">
-                            <div class="mech-label" x-text="mechLabel(mechIdx)"></div>
+                <!-- Mech preview (draft phase): own team, then the opponent's (layouts are public) -->
+                <template x-for="side in draftMechSides()" :key="side.team">
+                    <div class="draft-mech-side" :class="[side.mine ? 'mine' : 'opponent', 'team-' + side.team]">
+                        <div class="draft-section-label draft-side-label" style="margin-top:0.5rem">
+                            <span x-show="side.mine">Your Mechs</span>
+                            <span x-show="!side.mine" class="opp-badge">Opponent</span>
+                            <span x-show="!side.mine" x-text="'Team ' + side.team + ' mechs'"></span>
                         </div>
-                    </template>
-                </div>
+                        <div class="mech-previews">
+                            <template x-for="mechIdx in [0, 1]" :key="mechIdx">
+                                <div class="mech-outline">
+                                    <img :src="'images/ulysses' + capFirst(mechPilotColor(mechIdx, side.team)) + '.png'"
+                                         class="mech-img" alt="Mech">
+                                    <div class="mech-label" x-text="mechLabel(mechIdx, side.team)"></div>
+                                    <!-- Loadout kept from the last round -->
+                                    <template x-if="side.mechs[mechIdx]">
+                                        <div class="fight-loadout draft-loadout">
+                                            <template x-for="slot in ['head','torso','r_arm','l_arm','legs']" :key="slot">
+                                                <div class="fight-slot"
+                                                     x-show="side.mechs[mechIdx].slots?.[slot] || (side.mechs[mechIdx].equipment?.[slot]?.length ?? 0) > 0">
+                                                    <span class="slot-label" x-text="slotLabel(slot)"></span>
+                                                    <span class="fight-module" :class="{ 'is-default': !side.mechs[mechIdx].slots?.[slot] }"
+                                                          @mouseenter="showCardPreview(side.mechs[mechIdx].slots?.[slot], $event)"
+                                                          @mouseleave="hideCardPreview()"
+                                                          x-text="side.mechs[mechIdx].slots?.[slot]
+                                                              ? (cardInfo(side.mechs[mechIdx].slots[slot])?.name ?? side.mechs[mechIdx].slots[slot])
+                                                              : (slot === 'head' ? '—' : 'Default')"></span>
+                                                    <template x-for="(eqId, ei) in (side.mechs[mechIdx].equipment?.[slot] ?? [])" :key="ei">
+                                                        <span class="fight-module is-equip"
+                                                              @mouseenter="showCardPreview(eqId, $event)"
+                                                              @mouseleave="hideCardPreview()"
+                                                              x-text="cardInfo(eqId)?.name ?? eqId"></span>
+                                                    </template>
+                                                </div>
+                                            </template>
+                                            <div class="draft-loadout-empty"
+                                                 x-show="!Object.values(side.mechs[mechIdx].slots ?? {}).some(Boolean)
+                                                      && !Object.values(side.mechs[mechIdx].equipment ?? {}).some(e => e.length)">
+                                                No modules equipped
+                                            </div>
+                                        </div>
+                                    </template>
+                                </div>
+                            </template>
+                        </div>
+
+                        <!-- Modules kept from earlier rounds but not on a mech -->
+                        <div class="draft-section-label" x-show="side.mine && (draftState?.unassigned?.length ?? 0) > 0">
+                            Your Unequipped Cards (<span x-text="draftState?.unassigned?.length ?? 0"></span>)
+                        </div>
+                        <div class="card-grid card-grid-sm" x-show="side.mine && (draftState?.unassigned?.length ?? 0) > 0">
+                            <template x-for="(cardId, idx) in (draftState?.unassigned ?? [])" :key="idx">
+                                <div class="module-card collected">
+                                    <div class="card-top">
+                                        <div class="card-name" x-text="cardInfo(cardId)?.name ?? cardId"></div>
+                                        <div class="card-hp" x-html="hardpointIcons(cardInfo(cardId))"></div>
+                                    </div>
+                                    <div class="card-meta">
+                                        <span class="card-type-badge" :class="'type-' + (cardInfo(cardId)?.type ?? '')"
+                                              x-text="cardInfo(cardId)?.type"></span>
+                                        <span class="card-tier" x-text="'T' + (cardInfo(cardId)?.tier ?? '')"></span>
+                                    </div>
+                                    <div class="card-effects" x-text="cardInfo(cardId)?.effects"></div>
+                                    <div class="card-aoe" x-show="cardInfo(cardId)?.aoe"
+                                         x-text="cardInfo(cardId)?.aoe === 'tile' ? '+entire tile' : '+neighboring tiles'"></div>
+                                    <div class="card-energy" x-show="cardInfo(cardId)?.energy_max"
+                                         x-html="energySquaresHtml(cardInfo(cardId))"></div>
+                                    <div class="card-range" x-show="cardInfo(cardId)?.range"
+                                         x-html="rangeHtml(cardInfo(cardId))"></div>
+                                    <div class="card-parts"
+                                         x-text="(cardInfo(cardId)?.parts ?? []).join(' · ').toUpperCase()"></div>
+                                </div>
+                            </template>
+                        </div>
+                    </div>
+                </template>
 
             </div><!-- /.draft-panel -->
 
@@ -867,13 +932,23 @@ function roomApp() {
 
         capFirst(s) { return s ? s.charAt(0).toUpperCase() + s.slice(1) : ''; },
 
-        mechPilotColor(mechIdx) {
-            const teamPilots = this.roomState?.pilots?.[String(this.myTeam)] ?? [];
+        mechPilotColor(mechIdx, team = this.myTeam) {
+            const teamPilots = this.roomState?.pilots?.[String(team)] ?? [];
             return teamPilots[mechIdx] ?? 'blue';
         },
 
-        mechLabel(mechIdx) {
-            return this.pilotName(this.mechPilotColor(mechIdx));
+        mechLabel(mechIdx, team = this.myTeam) {
+            return this.pilotName(this.mechPilotColor(mechIdx, team));
+        },
+
+        // Draft mech previews: own team first; the opponent's only once they have a layout
+        draftMechSides() {
+            const mine = String(this.myTeam);
+            const opp  = mine === '1' ? '2' : '1';
+            const tm   = this.draftState?.team_mechs ?? {};
+            const sides = [{ team: mine, mine: true, mechs: tm[mine] ?? [] }];
+            if ((tm[opp] ?? []).length) sides.push({ team: opp, mine: false, mechs: tm[opp] });
+            return sides;
         },
 
         slotLabel(slot) {

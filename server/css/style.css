@@ -546,6 +546,32 @@ input[type=text]:disabled { opacity: 0.4; cursor: not-allowed; }
     text-align: center;
 }
 
+.draft-loadout { align-self: stretch; }
+
+/* Opponent's mechs in the draft: team-colored frame + badge so they can't be mistaken for ours */
+.draft-mech-side.opponent {
+    margin-top: 0.6rem;
+    padding: 0.2rem 0.6rem 0.6rem;
+    border: 2px solid var(--side-color);
+    border-radius: 8px;
+    background: color-mix(in srgb, var(--side-color) 7%, transparent);
+}
+.draft-mech-side.team-1 { --side-color: var(--team1); }
+.draft-mech-side.team-2 { --side-color: var(--team2); }
+.draft-mech-side.opponent .draft-side-label { color: var(--side-color); display: flex; align-items: center; gap: 0.4rem; }
+.draft-mech-side.opponent .mech-outline { border-color: color-mix(in srgb, var(--side-color) 45%, var(--border)); }
+.opp-badge {
+    background: var(--side-color);
+    color: #fff;
+    font-size: 0.65rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    padding: 0.1rem 0.4rem;
+    border-radius: 3px;
+}
+.draft-loadout-empty { font-size: 0.72rem; color: var(--muted); font-style: italic; text-align: center; }
+
 /* ── Config panel ────────────────────────────────────────────── */
 
 .main-area.config-mode .chat-panel { flex: 0 0 280px; border-left: 1px solid var(--border); }
