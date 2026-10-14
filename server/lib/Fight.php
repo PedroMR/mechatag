@@ -719,6 +719,25 @@ class Fight {
 
     // ── Client state ──────────────────────────────────────────────────────
 
+    /**
+     * The discard as one pile per pilot (team 1's pilots, then team 2's):
+     * each pile's count and its top card, i.e. that pilot's last discarded card.
+     */
+    private static function discardPiles(array $state): array {
+        $piles = [];
+        foreach (['1', '2'] as $tk) {
+            foreach ($state['pilots'][$tk] ?? [] as $pilot) {
+                $piles[$pilot] = ['pilot' => $pilot, 'team' => $tk, 'count' => 0, 'top' => null];
+            }
+        }
+        foreach ($state['fight']['discard'] as $card) {
+            if (!isset($piles[$card['pilot']])) continue;
+            $piles[$card['pilot']]['count']++;
+            $piles[$card['pilot']]['top'] = $card;
+        }
+        return array_values($piles);
+    }
+
     public static function publicState(array $state, string $player_id): ?array {
         if ($state['phase'] !== 'fight') return null;
 
@@ -727,6 +746,7 @@ class Fight {
         return [
             'deck_count'    => count($state['fight']['deck']),
             'discard_count' => count($state['fight']['discard']),
+            'discards'      => self::discardPiles($state),
             'current'       => $state['fight']['current'],
             'mechs'         => $state['fight']['mechs'],
             'pending'       => $state['fight']['pending'] ?? null,

@@ -451,15 +451,12 @@ foreach ($pilots_raw['pilots'] as $p) {
                                 @click="fightFlip">
                             Flip Card
                         </button>
-                        <div class="fight-deck-stack" x-show="(fightState?.discard_count ?? 0) > 0"
-                             style="opacity:0.5">
-                            <div class="fight-deck-label">Discard</div>
-                            <div class="fight-deck-count" x-text="fightState?.discard_count ?? 0"></div>
-                        </div>
                     </div>
 
-                    <div class="fight-current" x-show="fightState?.current">
-                        <div class="fight-card"
+                    <!-- Card being resolved: large, so it can't be confused with the discards -->
+                    <div class="fight-current">
+                        <div class="fight-current-label">Now resolving</div>
+                        <div class="fight-card fight-card-current" x-show="fightState?.current"
                              :class="'pilot-bg-' + (fightState?.current?.pilot ?? '')">
                             <div class="fight-card-pilot"
                                  x-text="pilotName(fightState?.current?.pilot)"></div>
@@ -467,6 +464,28 @@ foreach ($pilots_raw['pilots'] as $p) {
                                  x-text="fightState?.current?.name"></div>
                             <div class="fight-card-effect"
                                  x-text="fightState?.current?.effect"></div>
+                        </div>
+                        <div class="fight-card fight-card-current fight-card-none" x-show="!fightState?.current">
+                            <div class="fight-card-name">No card yet</div>
+                            <div class="fight-card-effect">Flip to start</div>
+                        </div>
+                    </div>
+
+                    <!-- One discard pile per pilot, showing that pilot's last card -->
+                    <div class="fight-discards">
+                        <div class="fight-current-label">Discards</div>
+                        <div class="fight-discard-piles">
+                            <template x-for="pile in (fightState?.discards ?? [])" :key="pile.pilot">
+                                <div class="fight-card fight-card-discard"
+                                     :class="['pilot-bg-' + pile.pilot, { empty: !pile.top }]">
+                                    <div class="fight-card-pilot">
+                                        <span x-text="pilotName(pile.pilot)"></span>
+                                        <span class="fight-discard-count" x-text="'· ' + pile.count"></span>
+                                    </div>
+                                    <div class="fight-card-name" x-text="pile.top?.name ?? '—'"></div>
+                                    <div class="fight-card-effect" x-text="pile.top?.effect ?? ''"></div>
+                                </div>
+                            </template>
                         </div>
                     </div>
                 </div>

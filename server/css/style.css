@@ -870,6 +870,49 @@ input[type=text]:disabled { opacity: 0.4; cursor: not-allowed; }
 .fight-card.pilot-bg-purple .fight-card-pilot { color: #a050e0; }
 .fight-card.pilot-bg-black  .fight-card-pilot { color: #9090a0; }
 
+.fight-current-label {
+    font-size: 0.62rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--muted);
+    margin-bottom: 0.3rem;
+}
+
+/* Card being resolved: big, thick pilot-colored border, glow */
+.fight-card.fight-card-current {
+    min-width: 230px;
+    padding: 1.1rem 1.4rem;
+    border-width: 3px;
+    gap: 0.45rem;
+    box-shadow: 0 0 0 1px var(--bg), 0 0 18px -2px color-mix(in srgb, var(--accent) 45%, transparent);
+}
+.fight-card-current .fight-card-pilot  { font-size: 0.8rem; }
+.fight-card-current .fight-card-name   { font-size: 1.45rem; }
+.fight-card-current .fight-card-effect { font-size: 1rem; color: var(--text); }
+.fight-card-current.fight-card-none { box-shadow: none; opacity: 0.5; }
+
+/* Discard piles: small and dimmed, one per pilot */
+.fight-discards { min-width: 0; }
+.fight-discard-piles {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(110px, 1fr));
+    gap: 0.4rem;
+}
+.fight-card.fight-card-discard {
+    min-width: 0;
+    padding: 0.4rem 0.6rem;
+    border-radius: 7px;
+    border-width: 1px;
+    border-left-width: 4px;
+    gap: 0.1rem;
+    opacity: 0.8;
+}
+.fight-card-discard .fight-card-pilot  { font-size: 0.6rem; }
+.fight-card-discard .fight-card-name   { font-size: 0.78rem; }
+.fight-card-discard .fight-card-effect { font-size: 0.68rem; }
+.fight-card-discard.empty { opacity: 0.4; }
+.fight-discard-count { color: var(--muted); font-weight: 600; }
+
 /* Mechs row */
 
 .fight-mechs-row {
