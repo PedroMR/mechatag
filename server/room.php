@@ -1,4 +1,6 @@
 <?php
+require_once __DIR__ . '/lib/ClientVersion.php';
+$client_version = client_version();
 $player_id   = $_COOKIE['player_id']   ?? null;
 $player_name = $_COOKIE['player_name'] ?? null;
 $room_id     = strtoupper(preg_replace('/[^A-Fa-f0-9]/', '', $_GET['room'] ?? ''));
@@ -43,12 +45,18 @@ foreach ($pilots_raw['pilots'] as $p) {
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>MechaTag &mdash; <?= htmlspecialchars($room_id) ?></title>
-<link rel="stylesheet" href="css/style.css">
+<link rel="stylesheet" href="css/style.css?v=<?= $client_version ?>">
 <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.14.1/dist/cdn.min.js"></script>
 </head>
 <body>
 
 <div class="room-shell" x-data="roomApp()" x-init="init()">
+
+    <!-- Page out of date after a deploy -->
+    <div class="reload-banner" x-show="staleClient" x-cloak>
+        <span>A new version of MechaTag is available. Reload to get it; your game continues where it is.</span>
+        <button class="btn-sm" @click="location.reload()">Reload</button>
+    </div>
 
     <!-- Header -->
     <header class="room-header">
@@ -489,7 +497,7 @@ foreach ($pilots_raw['pilots'] as $p) {
                             </div>
                             <div class="fight-choice-sub" x-show="fightState.pending.free_def > 0"
                                  x-text="'Already blocking ' + fightState.pending.free_def + ' with ' + fightState.pending.free_names.join(', ') + ' (free)'"></div>
-                            <div class="fight-choice-sub">Choose shields to use. Each one spends its energy cost.</div>
+                            <div class="fight-choice-sub">Choose whether to use shields. Each one spends its energy cost.</div>
                             <div class="fight-choice-options">
                                 <template x-for="id in fightState.pending.options" :key="id">
                                     <button class="fight-module fight-choice-opt"
@@ -505,7 +513,7 @@ foreach ($pilots_raw['pilots'] as $p) {
                             </div>
                             <div class="fight-choice-sub" x-text="'Damage taken: ' + defendDamagePreview()"></div>
                             <div class="fight-choice-actions">
-                                <button class="btn-sm" @click="fightChoose()" :disabled="chargePicks.length === 0">Use shields</button>
+                                <button class="btn-sm" @click="fightChoose()" :disabled="chargePicks.length === 0">Spend energy &amp; block</button>
                                 <button class="btn-sm btn-ghost" @click="fightChoose(true)">Take the hit</button>
                             </div>
                         </div>
@@ -684,6 +692,7 @@ const PLAYER_NAME = <?= json_encode($player_name) ?>;
 const ROOM_ID     = <?= json_encode($room_id) ?>;
 const MODULES     = <?= json_encode($modules_by_id) ?>;
 const PILOTS      = <?= json_encode($pilots_by_id) ?>;
+const CLIENT_VERSION = <?= json_encode($client_version) ?>;
 
 function roomApp() {
     return {
@@ -701,6 +710,7 @@ function roomApp() {
         configState: null,
         fightState:  null,
         chargePicks: [],
+        staleClient: false,
         preview:     { id: null, x: 0, y: 0 },
         selectedCard: null,
         error:       '',
@@ -738,6 +748,7 @@ function roomApp() {
             try { data = await res.json(); }
             catch { this.error = 'Poll error: invalid server response'; return; }
             if (!data.ok) { this.error = data.error; return; }
+            if (data.client_version && data.client_version !== CLIENT_VERSION) this.staleClient = true;
 
             const prevPhase = this.phase;
             this.roomState   = data.room;

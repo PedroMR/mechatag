@@ -5,6 +5,7 @@ require_once __DIR__ . '/../lib/Room.php';
 require_once __DIR__ . '/../lib/Draft.php';
 require_once __DIR__ . '/../lib/Config.php';
 require_once __DIR__ . '/../lib/Fight.php';
+require_once __DIR__ . '/../lib/ClientVersion.php';
 ob_end_clean();  // discard any warnings printed during require
 header('Content-Type: application/json');
 
@@ -38,6 +39,7 @@ $team_channel = $team ? 'team' . $team : null;
 
 echo json_encode([
     'ok'   => true,
+    'client_version' => client_version(),
     'room' => Room::publicState($state, $player_id),
     'chat' => [
         'global' => Room::getMessages($room_id, 'global', $since_global),
