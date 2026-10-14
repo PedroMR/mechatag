@@ -198,13 +198,26 @@ class Draft {
                 // Draft complete → mech configuration
                 $empty_equip = ['head'=>[],'torso'=>[],'r_arm'=>[],'l_arm'=>[],'legs'=>[]];
                 $empty_mech  = ['slots' => ['head'=>null,'torso'=>null,'r_arm'=>null,'l_arm'=>null,'legs'=>null], 'equipment' => $empty_equip];
+                // Give each collected card a unique instance key (e.g. "small_laser:0", "small_laser:1")
+                // so copies of the same card can be assigned independently.
+                $modules_keyed = [];
+                foreach ($state['draft']['collected'] as $tk => $cards) {
+                    $seen = [];
+                    foreach ($cards as $cid) {
+                        $n = $seen[$cid] ?? 0;
+                        $modules_keyed[$tk][] = $cid . ':' . $n;
+                        $seen[$cid] = $n + 1;
+                    }
+                }
+
                 $state['phase'] = 'config';
                 $state['config'] = [
-                    'modules' => $state['draft']['collected'],
+                    'modules' => $modules_keyed,
                     'mechs'   => [
                         '1' => [$empty_mech, $empty_mech],
                         '2' => [$empty_mech, $empty_mech],
                     ],
+                    'ready'   => ['1' => false, '2' => false],
                 ];
                 unset($state['draft']);
             }

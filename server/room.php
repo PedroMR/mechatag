@@ -144,10 +144,16 @@ foreach ($pilots_raw['pilots'] as $p) {
                 <div class="phase-label">Config Phase</div>
                 <div class="draft-round-label">Assign cards to your mechs</div>
             </div>
+
+            <!-- Fight phase info -->
+            <div class="sidebar-actions" x-show="phase === 'fight'">
+                <div class="phase-label">Fight Phase</div>
+                <div class="draft-round-label" x-text="'Fight Deck: ' + (fightState?.deck_count ?? 0) + ' cards'"></div>
+            </div>
         </aside>
 
         <!-- ── Main area ──────────────────────────────────────── -->
-        <div class="main-area" :class="{ 'draft-mode': phase === 'draft', 'config-mode': phase === 'config' }">
+        <div class="main-area" :class="{ 'draft-mode': phase === 'draft', 'config-mode': phase === 'config', 'fight-mode': phase === 'fight' }">
 
             <!-- Draft panel (visible during draft phase) -->
             <div class="draft-panel" x-show="phase === 'draft'">
@@ -214,6 +220,7 @@ foreach ($pilots_raw['pilots'] as $p) {
                             <div class="card-meta">
                                 <span class="card-type-badge" :class="'type-' + (cardInfo(cardId)?.type ?? '')"
                                       x-text="cardInfo(cardId)?.type"></span>
+                                <span class="card-tier" x-text="'T' + (cardInfo(cardId)?.tier ?? '')"></span>
                             </div>
                             <div class="card-effects" x-text="cardInfo(cardId)?.effects"></div>
                             <div class="card-aoe" x-show="cardInfo(cardId)?.aoe"
@@ -255,10 +262,10 @@ foreach ($pilots_raw['pilots'] as $p) {
 
                 <!-- Available cards pool -->
                 <div class="draft-section-label">
-                    Available Cards (<span x-text="configCards.length"></span>)
+                    Available Cards (<span x-text="configState?.available?.length ?? 0"></span>)
                 </div>
-                <div class="card-grid card-grid-sm" x-show="configCards.length > 0">
-                    <template x-for="cardId in configCards" :key="cardId">
+                <div class="card-grid card-grid-sm" x-show="(configState?.available?.length ?? 0) > 0">
+                    <template x-for="(cardId, idx) in (configState?.available ?? [])" :key="idx">
                         <div class="module-card"
                              :class="{ 'card-mine': selectedCard === cardId }"
                              @click="configSelectCard(cardId)">
@@ -269,6 +276,7 @@ foreach ($pilots_raw['pilots'] as $p) {
                             <div class="card-meta">
                                 <span class="card-type-badge" :class="'type-' + (cardInfo(cardId)?.type ?? '')"
                                       x-text="cardInfo(cardId)?.type"></span>
+                                <span class="card-tier" x-text="'T' + (cardInfo(cardId)?.tier ?? '')"></span>
                             </div>
                             <div class="card-effects" x-text="cardInfo(cardId)?.effects"></div>
                             <div class="card-parts"
@@ -276,7 +284,7 @@ foreach ($pilots_raw['pilots'] as $p) {
                         </div>
                     </template>
                 </div>
-                <div class="config-empty-pool" x-show="configCards.length === 0">All cards assigned</div>
+                <div class="config-empty-pool" x-show="(configState?.available?.length ?? 0) === 0 && configState">All cards assigned</div>
 
                 <!-- Mechs -->
                 <div class="draft-section-label" style="margin-top:0.25rem">Your Mechs</div>
@@ -288,12 +296,6 @@ foreach ($pilots_raw['pilots'] as $p) {
                                      class="mech-img-sm" alt="Mech">
                                 <div class="mech-config-info">
                                     <div class="mech-title" x-text="mechLabel(mechIdx)"></div>
-                                    <div class="mech-hardp-bar">
-                                        <span class="mech-hardp-used" x-text="mech.hp_used"></span>
-                                        <span class="mech-hardp-sep">/</span>
-                                        <span class="mech-hardp-total" x-text="mech.hp_total"></span>
-                                        <span class="mech-hardp-label"> hardp used</span>
-                                    </div>
                                 </div>
                             </div>
 
@@ -309,6 +311,8 @@ foreach ($pilots_raw['pilots'] as $p) {
                                             <div class="slot-content"
                                                  x-text="mech.slots[slot] ? (cardInfo(mech.slots[slot])?.name ?? mech.slots[slot]) : slotDefault(slot)">
                                             </div>
+                                            <span class="card-tier" x-show="cardInfo(mech.slots[slot])?.tier"
+                                                  x-text="'T' + (cardInfo(mech.slots[slot])?.tier ?? '')"></span>
                                             <div class="slot-hardp"
                                                  x-show="(mech.slot_hp?.[slot]?.available ?? 0) > 0"
                                                  :class="{ 'no-free': slotHardpFree(mech, slot) === 0 }"
@@ -322,6 +326,7 @@ foreach ($pilots_raw['pilots'] as $p) {
                                                 <div class="equip-tag"
                                                      @click.stop="configAssign(mechIdx, slot, eqId)">
                                                     <span x-text="cardInfo(eqId)?.name ?? eqId"></span>
+                                                    <span class="card-tier" x-text="'T' + (cardInfo(eqId)?.tier ?? '')"></span>
                                                     <span class="equip-remove">×</span>
                                                 </div>
                                             </template>
@@ -338,7 +343,116 @@ foreach ($pilots_raw['pilots'] as $p) {
                     </template>
                 </div>
 
+                <!-- Readiness -->
+                <div class="draft-status-bar" style="margin-top:0.25rem">
+                    <span class="readiness-badge"
+                          :class="configState?.my_team_ready ? 'ready' : 'waiting'"
+                          x-text="configState?.my_team_ready ? 'Your team: ready' : 'Your team: configuring'">
+                    </span>
+                    <span class="readiness-badge"
+                          :class="configState?.opp_team_ready ? 'ready' : 'waiting'"
+                          x-text="configState?.opp_team_ready ? 'Opponents: ready' : 'Opponents: configuring'">
+                    </span>
+                    <button class="btn-sm"
+                            :class="configState?.my_team_ready ? 'btn-danger' : 'btn-start'"
+                            style="margin-left:auto"
+                            @click="configToggleReady">
+                        <span x-text="configState?.my_team_ready ? 'Unready' : 'Done — Start Fight'"></span>
+                    </button>
+                </div>
+
             </div><!-- /.config-panel -->
+
+            <!-- Fight panel -->
+            <div class="fight-panel" x-show="phase === 'fight'">
+
+                <!-- Deck controls + current card -->
+                <div class="fight-top">
+                    <div class="fight-deck-row">
+                        <div class="fight-deck-stack" :class="{ empty: (fightState?.deck_count ?? 0) === 0 }">
+                            <div class="fight-deck-label">Deck</div>
+                            <div class="fight-deck-count" x-text="fightState?.deck_count ?? 0"></div>
+                        </div>
+                        <button class="btn-start fight-flip-btn"
+                                :disabled="(fightState?.deck_count ?? 0) === 0"
+                                @click="fightFlip">
+                            Flip Card
+                        </button>
+                        <div class="fight-deck-stack" x-show="(fightState?.discard_count ?? 0) > 0"
+                             style="opacity:0.5">
+                            <div class="fight-deck-label">Discard</div>
+                            <div class="fight-deck-count" x-text="fightState?.discard_count ?? 0"></div>
+                        </div>
+                    </div>
+
+                    <div class="fight-current" x-show="fightState?.current">
+                        <div class="fight-card"
+                             :class="'pilot-bg-' + (fightState?.current?.pilot ?? '')">
+                            <div class="fight-card-pilot"
+                                 x-text="pilotName(fightState?.current?.pilot)"></div>
+                            <div class="fight-card-name"
+                                 x-text="fightState?.current?.name"></div>
+                            <div class="fight-card-effect"
+                                 x-text="fightState?.current?.effect"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Arena board -->
+                <div class="arena-board">
+                    <template x-for="tile in 6" :key="tile">
+                        <div class="arena-tile" :class="{ 'arena-divider': tile === 4 }">
+                            <div class="arena-tile-num" x-text="tile"></div>
+                            <div class="arena-tile-tokens">
+                                <template x-for="teamKey in ['1','2']" :key="teamKey">
+                                    <template x-for="(mech, mi) in (fightState?.mechs?.[teamKey] ?? [])" :key="mi">
+                                        <span class="arena-token"
+                                              :class="['pilot-' + mech.pilot, { destroyed: mech.hp <= 0 }]"
+                                              x-show="mech.pos === (tile - 1)"
+                                              :title="mech.pilot_name"></span>
+                                    </template>
+                                </template>
+                            </div>
+                        </div>
+                    </template>
+                </div>
+
+                <!-- Mechs -->
+                <div class="fight-mechs-row">
+                    <template x-for="teamKey in ['1','2']" :key="teamKey">
+                        <div class="fight-team-col" :class="'team-' + teamKey">
+                            <div class="fight-team-label" x-text="'Team ' + teamKey"></div>
+                            <template x-for="(mech, mi) in (fightState?.mechs?.[teamKey] ?? [])" :key="mi">
+                                <div class="fight-mech" :class="{ destroyed: mech.hp <= 0 }">
+                                    <div class="fight-mech-pilot">
+                                        <span class="pilot-dot"
+                                              :class="'pilot-' + mech.pilot"
+                                              style="width:10px;height:10px"></span>
+                                        <span x-text="mech.pilot_name"></span>
+                                        <span class="fight-mech-def"
+                                              x-show="mech.defense > 0"
+                                              x-text="'🛡' + mech.defense"></span>
+                                    </div>
+                                    <div class="fight-hp-bar-wrap">
+                                        <div class="fight-hp-bar"
+                                             :style="'width:' + Math.max(0, mech.hp / mech.max_hp * 100) + '%'"
+                                             :class="{ low: mech.hp / mech.max_hp < 0.35 }">
+                                        </div>
+                                    </div>
+                                    <div class="fight-hp-text"
+                                         x-text="mech.hp + ' / ' + mech.max_hp + ' HP'">
+                                    </div>
+                                </div>
+                            </template>
+                        </div>
+                    </template>
+                </div>
+
+                <!-- Fight log -->
+                <div class="fight-log-label">Fight Log</div>
+                <div class="fight-log" id="fight-log"></div>
+
+            </div><!-- /.fight-panel -->
 
             <!-- Chat panel -->
             <div class="chat-panel">
@@ -392,6 +506,7 @@ function roomApp() {
         chatDraft:   '',
         draftState:  null,
         configState: null,
+        fightState:  null,
         selectedCard: null,
         error:       '',
         copyLabel:   'Copy Link',
@@ -433,7 +548,10 @@ function roomApp() {
             this.roomState   = data.room;
             this.draftState  = data.draft;
             this.configState = data.config;
+            const prevLogLen = this.fightState?.log?.length ?? 0;
+            this.fightState  = data.fight;
             if (this.phase !== prevPhase) this.selectedCard = null;
+            if ((data.fight?.log?.length ?? 0) !== prevLogLen) this.renderFightLog();
 
             let chatChanged = false;
             const newGlobal = data.chat.global.filter(m => m.seq > this.seenGlobal);
@@ -558,7 +676,7 @@ function roomApp() {
 
         // ── Draft helpers ────────────────────────────────────────
 
-        cardInfo(id) { return MODULES[id] ?? null; },
+        cardInfo(id) { return MODULES[id] ?? MODULES[id?.split(':')[0]] ?? null; },
 
         hardpointIcons(card) {
             if (!card) return '';
@@ -677,19 +795,6 @@ function roomApp() {
 
         // ── Config actions ───────────────────────────────────────
 
-        get configCards() {
-            if (!this.configState) return [];
-            const all      = (this.configState.modules ?? []).slice(); // .slice() forces Alpine reactivity tracking
-            const assigned = new Set();
-            for (const mech of this.configState.mechs ?? []) {
-                for (const v of Object.values(mech.slots ?? {})) { if (v) assigned.add(v); }
-                for (const slotEquip of Object.values(mech.equipment ?? {})) {
-                    for (const c of (slotEquip ?? [])) assigned.add(c);
-                }
-            }
-            return all.filter(id => !assigned.has(id));
-        },
-
         configSelectCard(cardId) {
             this.selectedCard = this.selectedCard === cardId ? null : cardId;
         },
@@ -721,6 +826,34 @@ function roomApp() {
             if (!card || !this.slotAcceptsCard(slot, card)) return false;
             const free = this.slotHardpFree(mech, slot);
             return free >= (card.hardpoints_required ?? 0);
+        },
+
+        async fightFlip() {
+            const fd = new FormData();
+            fd.append('room_id', this.roomId);
+            await fetch('api/fight_flip.php', { method: 'POST', body: fd });
+            await this.poll();
+        },
+
+        renderFightLog() {
+            const el = document.getElementById('fight-log');
+            if (!el) return;
+            const entries = this.fightState?.log ?? [];
+            el.innerHTML = '';
+            for (const entry of entries) {
+                const line = document.createElement('div');
+                line.className = 'fight-log-entry';
+                line.textContent = entry;
+                el.appendChild(line);
+            }
+            el.scrollTop = el.scrollHeight;
+        },
+
+        async configToggleReady() {
+            const fd = new FormData();
+            fd.append('room_id', this.roomId);
+            await fetch('api/config_ready.php', { method: 'POST', body: fd });
+            await this.poll();
         },
 
         async configAssign(mechIdx, slot, cardId) {

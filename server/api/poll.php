@@ -4,6 +4,7 @@ ob_start();
 require_once __DIR__ . '/../lib/Room.php';
 require_once __DIR__ . '/../lib/Draft.php';
 require_once __DIR__ . '/../lib/Config.php';
+require_once __DIR__ . '/../lib/Fight.php';
 ob_end_clean();  // discard any warnings printed during require
 header('Content-Type: application/json');
 
@@ -42,6 +43,8 @@ echo json_encode([
         'global' => Room::getMessages($room_id, 'global', $since_global),
         'team'   => $team_channel ? Room::getMessages($room_id, $team_channel, $since_team) : [],
     ],
-    'draft'  => Draft::publicState($state, $player_id),
-    'config' => Config::publicState($state, $player_id),
+    'draft'       => Draft::publicState($state, $player_id),
+    'config'      => Config::publicState($state, $player_id),
+    'config_ready'=> ($state['phase'] === 'config') ? ($state['config']['ready'] ?? ['1'=>false,'2'=>false]) : null,
+    'fight'       => Fight::publicState($state, $player_id),
 ]);

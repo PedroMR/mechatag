@@ -685,6 +685,7 @@ input[type=text]:disabled { opacity: 0.4; cursor: not-allowed; }
     flex-shrink: 0;
 }
 .slot-hardp.no-free { color: var(--danger); }
+.mech-slot .card-tier { flex-shrink: 0; }
 
 /* ── Per-slot equipment ──────────────────────────────────────── */
 
@@ -720,6 +721,253 @@ input[type=text]:disabled { opacity: 0.4; cursor: not-allowed; }
     cursor: pointer;
 }
 .equip-drop-zone:hover { background: color-mix(in srgb, var(--success) 10%, transparent); }
+
+/* ── Fight panel ─────────────────────────────────────────────── */
+
+.main-area.fight-mode .chat-panel { flex: 0 0 280px; border-left: 1px solid var(--border); }
+
+.fight-panel {
+    flex: 1;
+    overflow-y: auto;
+    padding: 1rem 1.25rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.9rem;
+    min-height: 0;
+}
+
+/* Top row: deck + flip + current card */
+
+.fight-top {
+    display: flex;
+    align-items: flex-start;
+    gap: 1.25rem;
+    flex-wrap: wrap;
+}
+
+.fight-deck-row {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.fight-deck-stack {
+    background: var(--panel);
+    border: 2px solid var(--border);
+    border-radius: 8px;
+    padding: 0.6rem 0.9rem;
+    text-align: center;
+    min-width: 64px;
+}
+.fight-deck-stack.empty { opacity: 0.4; }
+
+.fight-deck-label {
+    font-size: 0.62rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--muted);
+}
+
+.fight-deck-count {
+    font-size: 1.6rem;
+    font-weight: 800;
+    color: var(--accent);
+    line-height: 1;
+}
+
+.fight-flip-btn { padding: 0.55rem 1.1rem; font-size: 0.95rem; }
+
+/* Current card */
+
+.fight-current { flex-shrink: 0; }
+
+.fight-card {
+    background: var(--panel);
+    border: 2px solid var(--border);
+    border-radius: 10px;
+    padding: 0.85rem 1.1rem;
+    min-width: 150px;
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+}
+
+.fight-card-pilot {
+    font-size: 0.7rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+}
+
+.fight-card-name  { font-size: 1rem; font-weight: 700; color: var(--text); }
+.fight-card-effect { font-size: 0.8rem; color: var(--muted); font-family: monospace; }
+
+.pilot-bg-blue   { border-color: #4090ff; }
+.pilot-bg-green  { border-color: #40c870; }
+.pilot-bg-purple { border-color: #a050e0; }
+.pilot-bg-black  { border-color: #707080; }
+.fight-card.pilot-bg-blue   .fight-card-pilot { color: #4090ff; }
+.fight-card.pilot-bg-green  .fight-card-pilot { color: #40c870; }
+.fight-card.pilot-bg-purple .fight-card-pilot { color: #a050e0; }
+.fight-card.pilot-bg-black  .fight-card-pilot { color: #9090a0; }
+
+/* Mechs row */
+
+.fight-mechs-row {
+    display: flex;
+    gap: 1rem;
+}
+
+.fight-team-col {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 0.65rem 0.85rem;
+}
+
+.fight-team-label {
+    font-size: 0.68rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    margin-bottom: 0.2rem;
+}
+.fight-team-col.team-1 .fight-team-label { color: var(--team1); }
+.fight-team-col.team-2 .fight-team-label { color: var(--team2); }
+
+.fight-mech {
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+}
+.fight-mech.destroyed { opacity: 0.4; }
+
+.fight-mech-pilot {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-size: 0.85rem;
+    font-weight: 600;
+}
+
+.fight-mech-def {
+    margin-left: auto;
+    font-size: 0.78rem;
+    color: #60b0ff;
+}
+
+.fight-hp-bar-wrap {
+    height: 6px;
+    background: var(--border);
+    border-radius: 3px;
+    overflow: hidden;
+}
+
+.fight-hp-bar {
+    height: 100%;
+    background: var(--success);
+    border-radius: 3px;
+    transition: width 0.3s;
+}
+.fight-hp-bar.low { background: var(--danger); }
+
+.fight-hp-text {
+    font-size: 0.7rem;
+    color: var(--muted);
+}
+
+/* Arena board */
+
+.arena-board {
+    display: flex;
+    gap: 0;
+    margin: 1rem 0;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    overflow: hidden;
+    background: #111;
+}
+
+.arena-tile {
+    flex: 1;
+    min-height: 72px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: space-between;
+    padding: 6px 4px 4px;
+    border-right: 1px solid var(--border);
+    position: relative;
+}
+.arena-tile:last-child { border-right: none; }
+
+/* visual divider between the two halves */
+.arena-tile.arena-divider {
+    border-left: 3px solid var(--accent);
+}
+
+.arena-tile-num {
+    font-size: 0.6rem;
+    color: var(--muted);
+    line-height: 1;
+}
+
+.arena-tile-tokens {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    justify-content: center;
+    align-items: center;
+    flex: 1;
+    padding: 4px 0;
+}
+
+.arena-token {
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    border: 2px solid rgba(255,255,255,0.4);
+    display: inline-block;
+    transition: all 0.3s ease;
+}
+.arena-token.destroyed {
+    opacity: 0.25;
+    filter: grayscale(1);
+}
+
+/* Fight log */
+
+.fight-log-label {
+    font-size: 0.68rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--muted);
+}
+
+.fight-log {
+    flex: 1;
+    min-height: 120px;
+    max-height: 400px;
+    overflow-y: auto;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 0.6rem 0.8rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+}
+
+.fight-log-entry {
+    font-size: 0.82rem;
+    color: var(--text);
+    line-height: 1.45;
+}
+.fight-log-entry:last-child { color: var(--accent); }
 
 /* ── Responsive ──────────────────────────────────────────────── */
 

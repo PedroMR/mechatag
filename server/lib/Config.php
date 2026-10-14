@@ -18,10 +18,15 @@ class Config {
         return array_column($raw, null, 'id');
     }
 
+    /** Strip the instance suffix from an instance key, e.g. "small_laser:1" → "small_laser". */
+    private static function baseId(string $id): string {
+        return explode(':', $id)[0];
+    }
+
     private static function slotHardpointsAvailable(string $slot, array $mech, array $modules_by_id): int {
         $card_id = $mech['slots'][$slot] ?? null;
         if ($card_id !== null) {
-            return (int)($modules_by_id[$card_id]['hardpoints_offered'] ?? 0);
+            return (int)($modules_by_id[self::baseId($card_id)]['hardpoints_offered'] ?? 0);
         }
         return self::DEFAULT_SLOT_HP[$slot] ?? 0;
     }
@@ -29,7 +34,7 @@ class Config {
     private static function slotHardpointsUsed(string $slot, array $mech, array $modules_by_id): int {
         $used = 0;
         foreach ($mech['equipment'][$slot] ?? [] as $card_id) {
-            $used += (int)($modules_by_id[$card_id]['hardpoints_required'] ?? 0);
+            $used += (int)($modules_by_id[self::baseId($card_id)]['hardpoints_required'] ?? 0);
         }
         return $used;
     }
@@ -82,7 +87,7 @@ class Config {
         $team_key = (string)$team;
 
         if (!isset($state['config']['mechs'][$team_key][$mech_idx])) return $state;
-        $card = $modules_by_id[$card_id] ?? null;
+        $card = $modules_by_id[self::baseId($card_id)] ?? null;
         if (!$card) return $state;
 
         if (!array_key_exists($slot, self::DEFAULT_SLOT_HP)) return $state;
@@ -159,9 +164,28 @@ class Config {
             ];
         }
 
+        // Compute available (unassigned) cards server-side
+        $assigned = [];
+        foreach ($state['config']['mechs'][$team_key] as $mech) {
+            foreach ($mech['slots'] as $v) {
+                if ($v !== null) $assigned[] = $v;
+            }
+            foreach ($mech['equipment'] as $slot_equip) {
+                foreach ($slot_equip as $eq) $assigned[] = $eq;
+            }
+        }
+        $available = array_values(array_filter(
+            $state['config']['modules'][$team_key] ?? [],
+            fn($id) => !in_array($id, $assigned, true)
+        ));
+
+        $opp_key = $team_key === '1' ? '2' : '1';
         return [
-            'modules' => $state['config']['modules'][$team_key] ?? [],
-            'mechs'   => $mechs_out,
+            'modules'        => $state['config']['modules'][$team_key] ?? [],
+            'available'      => $available,
+            'mechs'          => $mechs_out,
+            'my_team_ready'  => (bool)($state['config']['ready'][$team_key] ?? false),
+            'opp_team_ready' => (bool)($state['config']['ready'][$opp_key]  ?? false),
         ];
     }
 }
