@@ -374,7 +374,7 @@ foreach ($pilots_raw['pilots'] as $p) {
                             <div class="fight-deck-count" x-text="fightState?.deck_count ?? 0"></div>
                         </div>
                         <button class="btn-start fight-flip-btn"
-                                :disabled="(fightState?.deck_count ?? 0) === 0 || !!fightState?.pending"
+                                :disabled="(fightState?.deck_count ?? 0) === 0 || !!fightState?.pending || !!fightState?.result"
                                 @click="fightFlip">
                             Flip Card
                         </button>
@@ -398,6 +398,18 @@ foreach ($pilots_raw['pilots'] as $p) {
                     </div>
                 </div>
 
+                <!-- Fight result -->
+                <div class="fight-result" x-show="fightState?.result"
+                     :class="fightState?.result?.winner ? 'team-' + fightState.result.winner : 'draw'">
+                    <div class="fight-result-title"
+                         x-text="roomState?.game_winner
+                             ? '🏆 Team ' + roomState.game_winner + ' wins the game!'
+                             : (fightState?.result?.winner ? 'Team ' + fightState.result.winner + ' wins the fight!' : 'The fight is a draw')"></div>
+                    <div class="fight-result-detail" x-text="fightResultDetail()"></div>
+                    <div class="fight-result-score"
+                         x-text="'Score: Team 1 ' + (roomState?.victories?.['1'] ?? 0) + ' – ' + (roomState?.victories?.['2'] ?? 0) + ' Team 2'"></div>
+                </div>
+
                 <!-- Pending choice: charge modules (CORE / generator) -->
                 <div class="fight-choice" x-show="fightState?.pending">
                     <template x-if="fightState?.pending && myTeam === Number(fightState.pending.team)">
@@ -413,7 +425,9 @@ foreach ($pilots_raw['pilots'] as $p) {
                                     <button class="fight-module fight-choice-opt"
                                             :class="{ picked: chargePicks.includes(id) }"
                                             :disabled="!chargePicks.includes(id) && chargePicks.length >= fightState.pending.count"
-                                            @click="toggleChargePick(id)">
+                                            @click="toggleChargePick(id)"
+                                            @mouseenter="showCardPreview(id, $event)"
+                                            @mouseleave="hideCardPreview()">
                                         <span x-text="cardInfo(id)?.name ?? id"></span>
                                         <span class="fight-energy"
                                               x-html="fightEnergyHtml(fightState.mechs[fightState.pending.team][fightState.pending.mech], id)"></span>
@@ -441,7 +455,7 @@ foreach ($pilots_raw['pilots'] as $p) {
                                     <template x-for="(mech, mi) in (fightState?.mechs?.[teamKey] ?? [])" :key="mi">
                                         <span class="arena-token"
                                               :class="['pilot-' + mech.pilot, { destroyed: mech.hp <= 0 }]"
-                                              x-show="mech.pos === (tile - 1)"
+                                              x-show="mech.hp > 0 && mech.pos === (tile - 1)"
                                               :title="mech.pilot_name"></span>
                                     </template>
                                 </template>
@@ -482,13 +496,16 @@ foreach ($pilots_raw['pilots'] as $p) {
                                                  x-show="mech.slots?.[slot] || (mech.equipment?.[slot]?.length ?? 0) > 0">
                                                 <span class="slot-label" x-text="slotLabel(slot)"></span>
                                                 <span class="fight-module" :class="{ 'is-default': !mech.slots?.[slot] }"
-                                                      :title="cardInfo(mech.slots?.[slot])?.effects">
+                                                      @mouseenter="showCardPreview(mech.slots?.[slot], $event)"
+                                                      @mouseleave="hideCardPreview()">
                                                     <span x-text="mech.slots?.[slot] ? (cardInfo(mech.slots[slot])?.name ?? mech.slots[slot]) : (slot === 'head' ? '—' : 'Default')"></span>
                                                     <span class="fight-energy" x-show="mech.slots?.[slot]"
                                                           x-html="fightEnergyHtml(mech, mech.slots?.[slot])"></span>
                                                 </span>
                                                 <template x-for="(eqId, ei) in (mech.equipment?.[slot] ?? [])" :key="ei">
-                                                    <span class="fight-module is-equip" :title="cardInfo(eqId)?.effects">
+                                                    <span class="fight-module is-equip"
+                                                          @mouseenter="showCardPreview(eqId, $event)"
+                                                          @mouseleave="hideCardPreview()">
                                                         <span x-text="cardInfo(eqId)?.name ?? eqId"></span>
                                                         <span class="fight-energy" x-html="fightEnergyHtml(mech, eqId)"></span>
                                                     </span>
@@ -507,6 +524,29 @@ foreach ($pilots_raw['pilots'] as $p) {
                 <div class="fight-log" id="fight-log"></div>
 
             </div><!-- /.fight-panel -->
+
+            <!-- Full-card preview on hover (fight mode) -->
+            <div class="module-card card-preview" x-show="preview.id" x-cloak
+                 :style="'left:' + preview.x + 'px; top:' + preview.y + 'px'">
+                <div class="card-top">
+                    <div class="card-name" x-text="cardInfo(preview.id)?.name ?? preview.id"></div>
+                    <div class="card-hp" x-html="hardpointIcons(cardInfo(preview.id))"></div>
+                </div>
+                <div class="card-meta">
+                    <span class="card-type-badge" :class="'type-' + (cardInfo(preview.id)?.type ?? '')"
+                          x-text="cardInfo(preview.id)?.type"></span>
+                    <span class="card-tier" x-text="'T' + (cardInfo(preview.id)?.tier ?? '')"></span>
+                </div>
+                <div class="card-effects" x-text="cardInfo(preview.id)?.effects"></div>
+                <div class="card-aoe" x-show="cardInfo(preview.id)?.aoe"
+                     x-text="cardInfo(preview.id)?.aoe === 'tile' ? '+entire tile' : '+neighboring tiles'"></div>
+                <div class="card-energy" x-show="cardInfo(preview.id)?.energy_max"
+                     x-html="energySquaresHtml(cardInfo(preview.id))"></div>
+                <div class="card-range" x-show="cardInfo(preview.id)?.range"
+                     x-html="rangeHtml(cardInfo(preview.id))"></div>
+                <div class="card-parts"
+                     x-text="(cardInfo(preview.id)?.parts ?? []).join(' · ').toUpperCase()"></div>
+            </div>
 
             <!-- Chat panel -->
             <div class="chat-panel">
@@ -562,6 +602,7 @@ function roomApp() {
         configState: null,
         fightState:  null,
         chargePicks: [],
+        preview:     { id: null, x: 0, y: 0 },
         selectedCard: null,
         error:       '',
         copyLabel:   'Copy Link',
@@ -901,6 +942,33 @@ function roomApp() {
             await this.poll();
         },
 
+        // Show the full card next to the hovered module, kept inside the viewport
+        showCardPreview(id, ev) {
+            if (!id || !this.cardInfo(id)) return;
+            const r = ev.currentTarget.getBoundingClientRect();
+            const w = 190, h = 190, gap = 8;
+            let x = r.right + gap;
+            if (x + w > window.innerWidth - gap) x = Math.max(gap, r.left - w - gap);
+            const y = Math.min(Math.max(gap, r.top), window.innerHeight - h - gap);
+            this.preview = { id, x, y };
+        },
+
+        hideCardPreview() { this.preview = { id: null, x: 0, y: 0 }; },
+
+        fightResultDetail() {
+            const r = this.fightState?.result;
+            if (!r) return '';
+            const how = r.reason === 'wipe' ? 'A team was wiped out.' : 'The Fight Deck ran out.';
+            const s1 = r.stats['1'], s2 = r.stats['2'];
+            const by = {
+                eliminated: `Mechs eliminated: ${s1.eliminated}–${s2.eliminated}.`,
+                damage:     `Mechs eliminated tied ${s1.eliminated}–${s2.eliminated}; damage dealt: ${s1.damage}–${s2.damage}.`,
+                progress:   `Eliminations and damage tied; tiles advanced into enemy territory: ${Math.max(s1.progress, 0)}–${Math.max(s2.progress, 0)}.`,
+                draw:       'Eliminations, damage and territory all tied.',
+            }[r.decided_by];
+            return `${how} ${by}`;
+        },
+
         toggleChargePick(id) {
             this.chargePicks = this.chargePicks.includes(id)
                 ? this.chargePicks.filter(x => x !== id)
@@ -914,6 +982,7 @@ function roomApp() {
             const res = await fetch('api/fight_choose.php', { method: 'POST', body: fd }).then(r => r.json());
             if (!res.ok) alert(res.error);
             this.chargePicks = [];
+            this.hideCardPreview();
             await this.poll();
         },
 

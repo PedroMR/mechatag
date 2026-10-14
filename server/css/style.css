@@ -913,6 +913,39 @@ input[type=text]:disabled { opacity: 0.4; cursor: not-allowed; }
     border-color: color-mix(in srgb, var(--accent) 40%, transparent);
 }
 
+/* Card preview on hover */
+
+[x-cloak] { display: none !important; }
+
+.module-card.card-preview {
+    position: fixed;
+    z-index: 50;
+    width: 190px;
+    pointer-events: none;
+    cursor: default;
+    border-color: var(--accent);
+    box-shadow: 0 6px 20px rgb(0 0 0 / 0.45);
+}
+
+/* Fight result */
+
+.fight-result {
+    background: var(--panel);
+    border: 2px solid var(--border);
+    border-radius: 8px;
+    padding: 0.7rem 0.95rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+}
+.fight-result.team-1 { border-color: var(--team1); }
+.fight-result.team-2 { border-color: var(--team2); }
+.fight-result-title { font-size: 1.05rem; font-weight: 700; }
+.fight-result.team-1 .fight-result-title { color: var(--team1); }
+.fight-result.team-2 .fight-result-title { color: var(--team2); }
+.fight-result-detail { font-size: 0.8rem; color: var(--muted); }
+.fight-result-score { font-size: 0.85rem; font-weight: 600; }
+
 /* Pending choice */
 
 .fight-choice {
