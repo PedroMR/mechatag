@@ -374,7 +374,7 @@ foreach ($pilots_raw['pilots'] as $p) {
                             <div class="fight-deck-count" x-text="fightState?.deck_count ?? 0"></div>
                         </div>
                         <button class="btn-start fight-flip-btn"
-                                :disabled="(fightState?.deck_count ?? 0) === 0"
+                                :disabled="(fightState?.deck_count ?? 0) === 0 || !!fightState?.pending"
                                 @click="fightFlip">
                             Flip Card
                         </button>
@@ -396,6 +396,39 @@ foreach ($pilots_raw['pilots'] as $p) {
                                  x-text="fightState?.current?.effect"></div>
                         </div>
                     </div>
+                </div>
+
+                <!-- Pending choice: charge modules (CORE / generator) -->
+                <div class="fight-choice" x-show="fightState?.pending">
+                    <template x-if="fightState?.pending && myTeam === Number(fightState.pending.team)">
+                        <div>
+                            <div class="fight-choice-title">
+                                <span x-text="fightState.pending.source"></span>:
+                                choose up to <span x-text="fightState.pending.count"></span>
+                                module<span x-show="fightState.pending.count > 1">s</span>
+                                to get +1 energy
+                            </div>
+                            <div class="fight-choice-options">
+                                <template x-for="id in fightState.pending.options" :key="id">
+                                    <button class="fight-module fight-choice-opt"
+                                            :class="{ picked: chargePicks.includes(id) }"
+                                            :disabled="!chargePicks.includes(id) && chargePicks.length >= fightState.pending.count"
+                                            @click="toggleChargePick(id)">
+                                        <span x-text="cardInfo(id)?.name ?? id"></span>
+                                        <span class="fight-energy"
+                                              x-html="fightEnergyHtml(fightState.mechs[fightState.pending.team][fightState.pending.mech], id)"></span>
+                                    </button>
+                                </template>
+                            </div>
+                            <div class="fight-choice-actions">
+                                <button class="btn-sm" @click="fightChoose()" :disabled="chargePicks.length === 0">Charge</button>
+                                <button class="btn-sm btn-ghost" @click="fightChoose(true)">Skip</button>
+                            </div>
+                        </div>
+                    </template>
+                    <div class="fight-choice-wait"
+                         x-show="fightState?.pending && myTeam !== Number(fightState?.pending?.team)"
+                         x-text="'Waiting for Team ' + (fightState?.pending?.team ?? '') + ' to choose modules to charge…'"></div>
                 </div>
 
                 <!-- Arena board -->
@@ -441,6 +474,27 @@ foreach ($pilots_raw['pilots'] as $p) {
                                     </div>
                                     <div class="fight-hp-text"
                                          x-text="mech.hp + ' / ' + mech.max_hp + ' HP'">
+                                    </div>
+                                    <!-- Loadout: part per slot + its equipment, with energy cubes -->
+                                    <div class="fight-loadout">
+                                        <template x-for="slot in ['head','torso','r_arm','l_arm','legs']" :key="slot">
+                                            <div class="fight-slot"
+                                                 x-show="mech.slots?.[slot] || (mech.equipment?.[slot]?.length ?? 0) > 0">
+                                                <span class="slot-label" x-text="slotLabel(slot)"></span>
+                                                <span class="fight-module" :class="{ 'is-default': !mech.slots?.[slot] }"
+                                                      :title="cardInfo(mech.slots?.[slot])?.effects">
+                                                    <span x-text="mech.slots?.[slot] ? (cardInfo(mech.slots[slot])?.name ?? mech.slots[slot]) : (slot === 'head' ? '—' : 'Default')"></span>
+                                                    <span class="fight-energy" x-show="mech.slots?.[slot]"
+                                                          x-html="fightEnergyHtml(mech, mech.slots?.[slot])"></span>
+                                                </span>
+                                                <template x-for="(eqId, ei) in (mech.equipment?.[slot] ?? [])" :key="ei">
+                                                    <span class="fight-module is-equip" :title="cardInfo(eqId)?.effects">
+                                                        <span x-text="cardInfo(eqId)?.name ?? eqId"></span>
+                                                        <span class="fight-energy" x-html="fightEnergyHtml(mech, eqId)"></span>
+                                                    </span>
+                                                </template>
+                                            </div>
+                                        </template>
                                     </div>
                                 </div>
                             </template>
@@ -507,6 +561,7 @@ function roomApp() {
         draftState:  null,
         configState: null,
         fightState:  null,
+        chargePicks: [],
         selectedCard: null,
         error:       '',
         copyLabel:   'Copy Link',
@@ -550,6 +605,7 @@ function roomApp() {
             this.configState = data.config;
             const prevLogLen = this.fightState?.log?.length ?? 0;
             this.fightState  = data.fight;
+            if (!this.fightState?.pending) this.chargePicks = [];
             if (this.phase !== prevPhase) this.selectedCard = null;
             if ((data.fight?.log?.length ?? 0) !== prevLogLen) this.renderFightLog();
 
@@ -694,6 +750,16 @@ function roomApp() {
             ).join('');
         },
 
+        // Energy slots of a module in a fight: solid border = activation cost, dashed = storage; filled = holds a cube
+        fightEnergyHtml(mech, id) {
+            const card = this.cardInfo(id);
+            if (!card || !card.energy_max) return '';
+            const cubes = mech.energy?.[id] ?? card.energy_min ?? 0;
+            return Array.from({length: card.energy_max}, (_, i) =>
+                `<span class="energy-sq fight-sq${i < card.energy_min ? ' cost' : ''}${i < cubes ? ' cube' : ''}"></span>`
+            ).join('');
+        },
+
         rangeHtml(card) {
             if (!card || !card.range) return '';
             const cells = [1,2,3,4,5].map(n =>
@@ -832,6 +898,22 @@ function roomApp() {
             const fd = new FormData();
             fd.append('room_id', this.roomId);
             await fetch('api/fight_flip.php', { method: 'POST', body: fd });
+            await this.poll();
+        },
+
+        toggleChargePick(id) {
+            this.chargePicks = this.chargePicks.includes(id)
+                ? this.chargePicks.filter(x => x !== id)
+                : [...this.chargePicks, id];
+        },
+
+        async fightChoose(skip = false) {
+            const fd = new FormData();
+            fd.append('room_id', this.roomId);
+            if (!skip) for (const id of this.chargePicks) fd.append('ids[]', id);
+            const res = await fetch('api/fight_choose.php', { method: 'POST', body: fd }).then(r => r.json());
+            if (!res.ok) alert(res.error);
+            this.chargePicks = [];
             await this.poll();
         },
 

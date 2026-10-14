@@ -880,6 +880,65 @@ input[type=text]:disabled { opacity: 0.4; cursor: not-allowed; }
     color: var(--muted);
 }
 
+/* Fight loadout */
+
+.fight-loadout {
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+    margin-top: 0.3rem;
+}
+
+.fight-slot {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.25rem;
+}
+.fight-slot .slot-label { width: 42px; }
+
+.fight-module {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    font-size: 0.74rem;
+    color: var(--text);
+    padding: 0.1rem 0.4rem;
+    border-radius: 4px;
+    border: 1px solid var(--border);
+}
+.fight-module.is-default { color: var(--muted); font-style: italic; }
+.fight-module.is-equip {
+    background: color-mix(in srgb, var(--accent) 12%, var(--bg));
+    border-color: color-mix(in srgb, var(--accent) 40%, transparent);
+}
+
+/* Pending choice */
+
+.fight-choice {
+    background: var(--panel);
+    border: 1px solid var(--accent);
+    border-radius: 8px;
+    padding: 0.6rem 0.85rem;
+}
+.fight-choice-title { font-size: 0.85rem; font-weight: 600; margin-bottom: 0.45rem; }
+.fight-choice-options { display: flex; flex-wrap: wrap; gap: 0.35rem; margin-bottom: 0.5rem; }
+.fight-choice-opt { background: var(--bg); color: var(--text); font-weight: 400; font-size: 0.78rem; padding: 0.15rem 0.45rem; }
+.fight-choice-opt:hover:not(:disabled) { border-color: var(--accent); }
+.fight-choice-opt.picked {
+    border-color: var(--accent);
+    background: color-mix(in srgb, var(--accent) 18%, var(--bg));
+}
+.fight-choice-opt:disabled { opacity: 0.45; cursor: default; }
+.fight-choice-actions { display: flex; gap: 0.4rem; }
+.fight-choice-wait { font-size: 0.82rem; color: var(--muted); font-style: italic; }
+
+.fight-energy { display: inline-flex; gap: 2px; }
+.fight-energy:empty { display: none; }
+.energy-sq.fight-sq { width: 8px; height: 8px; border-style: dashed; }
+.energy-sq.fight-sq.cost { border-style: solid; }
+.energy-sq.fight-sq.cube { background: #4090ff; }
+
 /* Arena board */
 
 .arena-board {
