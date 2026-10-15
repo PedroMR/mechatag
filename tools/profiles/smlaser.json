@@ -1,0 +1,44 @@
+{
+    "mechs": [
+        {
+            "slots": {
+                "head": "gen_head",
+                "torso": null,
+                "r_arm": null,
+                "l_arm": "power_arm",
+                "legs": null
+            },
+            "equipment": {
+                "head": [],
+                "torso": [
+                    "small_laser"
+                ],
+                "r_arm": [],
+                "l_arm": [
+                    "small_laser"
+                ],
+                "legs": []
+            }
+        },
+        {
+            "slots": {
+                "head": "gen_head",
+                "torso": null,
+                "r_arm": null,
+                "l_arm": "power_arm",
+                "legs": null
+            },
+            "equipment": {
+                "head": [],
+                "torso": [
+                    "small_laser"
+                ],
+                "r_arm": [],
+                "l_arm": [
+                    "small_laser"
+                ],
+                "legs": []
+            }
+        }
+    ]
+}

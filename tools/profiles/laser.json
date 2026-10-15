@@ -22,10 +22,10 @@
         },
         {
             "slots": {
-                "head": null,
-                "torso": "gen_torso",
-                "r_arm": "power_arm",
-                "l_arm": null,
+                "head": "gen_head",
+                "torso": null,
+                "r_arm": null,
+                "l_arm": "power_arm",
                 "legs": null
             },
             "equipment": {
@@ -33,10 +33,10 @@
                 "torso": [
                     "small_laser"
                 ],
-                "r_arm": [
-                    "sniper"
+                "r_arm": [],
+                "l_arm": [
+                    "laser_cannon"
                 ],
-                "l_arm": [],
                 "legs": []
             }
         }

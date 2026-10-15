@@ -2,7 +2,7 @@
     "mechs": [
         {
             "slots": {
-                "head": "ballistic_head",
+                "head": null,
                 "torso": null,
                 "r_arm": null,
                 "l_arm": null,
@@ -22,7 +22,7 @@
         },
         {
             "slots": {
-                "head": "ballistic_head",
+                "head": null,
                 "torso": null,
                 "r_arm": null,
                 "l_arm": null,
