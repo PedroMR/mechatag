@@ -141,6 +141,30 @@ input[type=text]:disabled { opacity: 0.4; cursor: not-allowed; }
 
 .room-player { margin-left: auto; font-size: 0.85rem; color: var(--muted); }
 
+.room-score {
+    display: flex;
+    align-items: baseline;
+    gap: 0.45rem;
+    font-size: 0.85rem;
+    padding: 0.2rem 0.75rem;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: var(--bg);
+}
+.room-score-round {
+    font-size: 0.68rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--muted);
+    margin-right: 0.3rem;
+}
+.room-score-team { font-weight: 600; }
+.room-score-team.mine { text-decoration: underline; text-underline-offset: 3px; }
+.room-score-num  { font-size: 1.15rem; font-weight: 800; }
+.room-score .team-1 { color: var(--team1); }
+.room-score .team-2 { color: var(--team2); }
+.room-score-sep  { color: var(--muted); }
+
 /* ── Room body ───────────────────────────────────────────────── */
 
 .room-body {

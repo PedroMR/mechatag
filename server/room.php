@@ -66,6 +66,18 @@ foreach ($pilots_raw['pilots'] as $p) {
             <strong x-text="roomId"></strong>
             <button class="btn-sm btn-ghost" @click="copyLink" x-text="copyLabel"></button>
         </div>
+        <!-- Game score (fights won; first to 2 wins the game) -->
+        <div class="room-score" x-show="phase !== 'lobby'" title="Fights won. First team to 2 wins the game.">
+            <span class="room-score-round"
+                  x-text="roomState?.game_winner ? 'Game over' : 'Round ' + (roomState?.game_round ?? 1)"></span>
+            <span class="room-score-team team-1" :class="{ mine: myTeam === 1 }"
+                  x-text="myTeam === 1 ? 'Team 1 (you)' : 'Team 1'"></span>
+            <span class="room-score-num team-1" x-text="roomState?.victories?.['1'] ?? 0"></span>
+            <span class="room-score-sep">–</span>
+            <span class="room-score-num team-2" x-text="roomState?.victories?.['2'] ?? 0"></span>
+            <span class="room-score-team team-2" :class="{ mine: myTeam === 2 }"
+                  x-text="myTeam === 2 ? 'Team 2 (you)' : 'Team 2'"></span>
+        </div>
         <div class="room-player">
             Playing as <strong><?= htmlspecialchars($player_name) ?></strong>
             &mdash; <a href="api/logout.php">logout</a>
@@ -352,6 +364,12 @@ foreach ($pilots_raw['pilots'] as $p) {
                                 <span class="card-tier" :class="'tier-' + (cardInfo(cardId)?.tier ?? '')" x-text="'T' + (cardInfo(cardId)?.tier ?? '')"></span>
                             </div>
                             <div class="card-effects" x-text="cardInfo(cardId)?.effects"></div>
+                            <div class="card-aoe" x-show="cardInfo(cardId)?.aoe"
+                                 x-text="cardInfo(cardId)?.aoe === 'tile' ? '+entire tile' : '+neighboring tiles'"></div>
+                            <div class="card-energy" x-show="cardInfo(cardId)?.energy_max"
+                                 x-html="energySquaresHtml(cardInfo(cardId))"></div>
+                            <div class="card-range" x-show="cardInfo(cardId)?.range"
+                                 x-html="rangeHtml(cardInfo(cardId))"></div>
                             <div class="card-parts"
                                  x-text="(cardInfo(cardId)?.parts ?? []).join(' · ').toUpperCase()"></div>
                         </div>
@@ -379,9 +397,11 @@ foreach ($pilots_raw['pilots'] as $p) {
                                         <!-- Part row -->
                                         <div class="mech-slot"
                                              :class="slotClass(mech, slot)"
-                                             @click="configPartClick(mechIdx, slot, mech.slots[slot])">
+                                             @click="hideCardPreview(); configPartClick(mechIdx, slot, mech.slots[slot])">
                                             <div class="slot-label" x-text="slotLabel(slot)"></div>
                                             <div class="slot-content"
+                                                 @mouseenter="showCardPreview(mech.slots[slot], $event)"
+                                                 @mouseleave="hideCardPreview()"
                                                  x-text="mech.slots[slot] ? (cardInfo(mech.slots[slot])?.name ?? mech.slots[slot]) : slotDefault(slot)">
                                             </div>
                                             <span class="card-tier" :class="'tier-' + (cardInfo(mech.slots[slot])?.tier ?? '')" x-show="cardInfo(mech.slots[slot])?.tier"
@@ -397,7 +417,9 @@ foreach ($pilots_raw['pilots'] as $p) {
                                              x-show="(mech.slot_hp?.[slot]?.available ?? 0) > 0 || (mech.equipment?.[slot]?.length ?? 0) > 0">
                                             <template x-for="(eqId, ei) in (mech.equipment?.[slot] ?? [])" :key="ei">
                                                 <div class="equip-tag"
-                                                     @click.stop="configAssign(mechIdx, slot, eqId)">
+                                                     @mouseenter="showCardPreview(eqId, $event)"
+                                                     @mouseleave="hideCardPreview()"
+                                                     @click.stop="hideCardPreview(); configAssign(mechIdx, slot, eqId)">
                                                     <span x-text="cardInfo(eqId)?.name ?? eqId"></span>
                                                     <span class="card-tier" :class="'tier-' + (cardInfo(eqId)?.tier ?? '')" x-text="'T' + (cardInfo(eqId)?.tier ?? '')"></span>
                                                     <span class="equip-remove">×</span>
@@ -701,7 +723,7 @@ foreach ($pilots_raw['pilots'] as $p) {
 
             </div><!-- /.fight-panel -->
 
-            <!-- Full-card preview on hover (fight mode) -->
+            <!-- Full-card preview on hover (draft, config and fight) -->
             <div class="module-card card-preview" x-show="preview.id" x-cloak
                  :style="{ left: preview.x + 'px', top: preview.y + 'px' }">
                 <div class="card-top">
@@ -1067,7 +1089,7 @@ function roomApp() {
         },
 
         slotDefault(slot) {
-            return slot === 'head' ? '— (empty)' : 'Default (1 HP)';
+            return slot === 'head' ? '— (empty)' : 'Default (1 hardp)';
         },
 
         slotClass(mech, slot) {
