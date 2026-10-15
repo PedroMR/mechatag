@@ -7,7 +7,7 @@
  *   php tools/simulate.php new <name>          Create a team profile (interactive wizard)
  *   php tools/simulate.php profiles            List saved profiles
  *   php tools/simulate.php show <name>         Print a profile's mechs
- *   php tools/simulate.php run <A> <B> [--fights=100] [--seed=N] [--log=K]
+ *   php tools/simulate.php run <A> <B> [--fights=100 | -f 100] [--seed=N] [--log=K]
  *                                              Fight profile A (team 1) against B (team 2)
  *
  * Profiles are JSON files in tools/profiles/. Loadouts are checked against the
@@ -310,6 +310,7 @@ function tally_log(array $log, array $team_of, array &$usage): void {
 }
 
 function cmd_run(string $name_a, string $name_b, array $opts): void {
+    $t0     = microtime(true);
     $a      = load_profile($name_a);
     $b      = load_profile($name_b);
     $fights = max(1, (int)($opts['fights'] ?? 100));
@@ -380,6 +381,8 @@ function cmd_run(string $name_a, string $name_b, array $opts): void {
         ksort($usage[$t]['shields']);
         foreach ($usage[$t]['shields'] as $shield => $n) printf("    %-20s blocked damage in %d hits\n", $shield, $n);
     }
+
+    printf("\nTook %.1fs\n", microtime(true) - $t0);
 }
 
 // ── CLI ──────────────────────────────────────────────────────────────────────
@@ -387,8 +390,11 @@ function cmd_run(string $name_a, string $name_b, array $opts): void {
 $args = array_slice($argv, 1);
 $opts = [];
 $pos  = [];
-foreach ($args as $arg) {
-    if (preg_match('/^--(\w+)=(.*)$/', $arg, $m)) $opts[$m[1]] = $m[2];
+for ($i = 0; $i < count($args); $i++) {
+    $arg = $args[$i];
+    if (preg_match('/^--(\w+)=(.*)$/', $arg, $m))  $opts[$m[1]] = $m[2];
+    elseif (preg_match('/^-f=?(\d+)$/', $arg, $m)) $opts['fights'] = $m[1];   // -f N, -f=N, -fN
+    elseif ($arg === '-f')                          $opts['fights'] = $args[++$i] ?? '';
     else $pos[] = $arg;
 }
 
@@ -396,6 +402,6 @@ match ($pos[0] ?? '') {
     'new'      => isset($pos[1]) ? cmd_new($pos[1]) : fail('usage: simulate.php new <name>'),
     'profiles' => cmd_profiles(),
     'show'     => isset($pos[1]) ? cmd_show($pos[1]) : fail('usage: simulate.php show <name>'),
-    'run'      => isset($pos[2]) ? cmd_run($pos[1], $pos[2], $opts) : fail('usage: simulate.php run <A> <B> [--fights=N] [--seed=N] [--log=K]'),
+    'run'      => isset($pos[2]) ? cmd_run($pos[1], $pos[2], $opts) : fail('usage: simulate.php run <A> <B> [--fights=N | -f N] [--seed=N] [--log=K]'),
     default    => print(preg_replace('/^ \* ?/m', '', explode('*/', explode('/**', file_get_contents(__FILE__), 2)[1])[0])),
 };
