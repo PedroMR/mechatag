@@ -537,6 +537,24 @@ foreach ($pilots_raw['pilots'] as $p) {
                             </div>
                         </div>
                     </template>
+                    <!-- Move: pick direction and distance (0..N) -->
+                    <template x-if="fightState?.pending?.kind === 'move' && myTeam === Number(fightState.pending.team)">
+                        <div>
+                            <div class="fight-choice-title"
+                                 x-text="fightState.pending.source + ': choose where ' + fightState.mechs[fightState.pending.team][fightState.pending.mech].pilot_name + ' moves'"></div>
+                            <div class="fight-choice-options">
+                                <template x-for="d in fightState.pending.options" :key="d">
+                                    <button class="fight-module fight-choice-opt"
+                                            :class="{ picked: chargePicks.includes(d) }"
+                                            @click="chargePicks = [d]"
+                                            x-text="fightState.pending.labels[d]"></button>
+                                </template>
+                            </div>
+                            <div class="fight-choice-actions">
+                                <button class="btn-sm" @click="fightChoose()" :disabled="chargePicks.length === 0">Move</button>
+                            </div>
+                        </div>
+                    </template>
                     <!-- Lock: pick an enemy to lock onto, or which held lock to spend on a LOCK-1 weapon -->
                     <template x-if="(fightState?.pending?.kind === 'lock' || fightState?.pending?.kind === 'spend_lock') && myTeam === Number(fightState.pending.team)">
                         <div>
@@ -592,7 +610,7 @@ foreach ($pilots_raw['pilots'] as $p) {
                     </template>
                     <div class="fight-choice-wait"
                          x-show="fightState?.pending && myTeam !== Number(fightState?.pending?.team)"
-                         x-text="'Waiting for Team ' + (fightState?.pending?.team ?? '') + ({ defend: ' to choose shields…', lock: ' to choose a lock target…', spend_lock: ' to choose which lock to spend…' }[fightState?.pending?.kind] ?? ' to choose modules to charge…')"></div>
+                         x-text="'Waiting for Team ' + (fightState?.pending?.team ?? '') + ({ move: ' to choose where to move…', defend: ' to choose shields…', lock: ' to choose a lock target…', spend_lock: ' to choose which lock to spend…' }[fightState?.pending?.kind] ?? ' to choose modules to charge…')"></div>
                 </div>
 
                 <!-- Arena board -->

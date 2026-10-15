@@ -795,6 +795,10 @@ input[type=text]:disabled { opacity: 0.4; cursor: not-allowed; }
     min-height: 0;
 }
 
+/* Sections keep their natural height and the panel scrolls; without this a tall
+   choice panel squeezes the board (overflow: hidden lets it shrink to nothing) */
+.fight-panel > * { flex-shrink: 0; }
+
 /* Top row: deck + flip + current card */
 
 .fight-top {
@@ -1089,6 +1093,7 @@ input[type=text]:disabled { opacity: 0.4; cursor: not-allowed; }
 .arena-board {
     display: flex;
     gap: 0;
+    min-height: 80px;
     margin: 1rem 0;
     border: 1px solid var(--border);
     border-radius: 6px;

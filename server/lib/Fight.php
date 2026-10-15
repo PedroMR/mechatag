@@ -207,10 +207,27 @@ class Fight {
         if ($pending['team'] !== $team)   { $error = 'Not your choice';   return $state; }
 
         $ids = array_values(array_unique(array_map('strval', $ids)));
-        if (count($ids) > $pending['count'])                  { $error = 'Too many modules'; return $state; }
-        if (array_diff($ids, $pending['options']))            { $error = 'Invalid module';   return $state; }
+        if (count($ids) > $pending['count'])                  { $error = 'Too many choices'; return $state; }
+        if (array_diff($ids, $pending['options']))            { $error = 'Invalid choice';   return $state; }
 
         $modules_by_id = self::loadModules();
+
+        if ($pending['kind'] === 'move') {
+            unset($state['fight']['pending']);
+            $delta = (int)($ids[0] ?? 0);   // skip = stay
+            $mech  = $state['fight']['mechs'][$team][$pending['mech']];
+            if ($delta === 0) {
+                $state['fight']['log'][] = "{$mech['pilot_name']} stays put.";
+            } else {
+                [$state, $moved, $pushed] = self::moveMech($state, $team, $pending['mech'], $delta);
+                $word = $delta > 0 ? 'forward' : 'back';
+                $tile = $state['fight']['mechs'][$team][$pending['mech']]['pos'] + 1;
+                $state['fight']['log'][] = $moved > 0
+                    ? "{$mech['pilot_name']} moves $word $moved with {$pending['source']} (tile $tile)" . ($pushed ? ', pushing ' . implode(' & ', $pushed) : '') . '.'
+                    : "{$mech['pilot_name']} tries to move $word but is blocked.";
+            }
+            return self::checkDeckEnd(self::runSteps($state));
+        }
 
         if ($pending['kind'] === 'lock' || $pending['kind'] === 'spend_lock') {
             unset($state['fight']['pending']);
@@ -336,33 +353,34 @@ class Fight {
         switch ($a['type']) {
 
             case 'move':
-                // Team 1 FORW = +tile, Team 2 FORW = -tile; BACK is the reverse.
-                $dir  = (($team_key === '1') === ($a['dir'] === 'forward')) ? 1 : -1;
-                $opp  = $team_key === '1' ? '2' : '1';
-                $moved = 0;
-                for ($s = 0; $s < $a['amount']; $s++) {
-                    $cur     = $state['fight']['mechs'][$team_key][$mech_idx]['pos'];
-                    $new_pos = $cur + $dir;
-                    if ($new_pos < 0 || $new_pos >= self::BOARD_TILES) break;
-                    // Count live enemy mechs on the target tile
-                    $enemies_at = [];
-                    foreach ($state['fight']['mechs'][$opp] as $ei => $em) {
-                        if ($em['hp'] > 0 && $em['pos'] === $new_pos) $enemies_at[] = $ei;
-                    }
-                    if (count($enemies_at) >= 2) break; // two enemies block advance
-                    if (count($enemies_at) === 1) {
-                        $push = $new_pos + $dir;
-                        if ($push < 0 || $push >= self::BOARD_TILES) break; // wall behind enemy
-                        $state['fight']['mechs'][$opp][$enemies_at[0]]['pos'] = $push;
-                    }
-                    $state['fight']['mechs'][$team_key][$mech_idx]['pos'] = $new_pos;
-                    $moved++;
-                }
+                $delta = $a['dir'] === 'forward' ? $a['amount'] : -$a['amount'];
+                [$state, $moved, $pushed] = self::moveMech($state, $team_key, $mech_idx, $delta);
                 $word  = $a['dir'] === 'forward' ? 'forward' : 'back';
                 $tile  = $state['fight']['mechs'][$team_key][$mech_idx]['pos'] + 1; // 1-based for display
                 $state['fight']['log'][] = $moved > 0
                     ? "$pilot_name moves $word $moved (tile $tile)."
                     : "$pilot_name tries to move $word but is blocked.";
+                break;
+
+            case 'choose_move':
+                // MOVE N: the player picks a direction and 0..N steps; preview each option
+                $options = [];
+                $labels  = [];
+                for ($d = -$a['amount']; $d <= $a['amount']; $d++) {
+                    [$sim, $moved, $pushed] = self::moveMech($state, $team_key, $mech_idx, $d);
+                    $tile = $sim['fight']['mechs'][$team_key][$mech_idx]['pos'] + 1;
+                    $what = $d === 0 ? 'Stay' : ($d > 0 ? "Forward $d" : 'Back ' . -$d);
+                    $note = "tile $tile";
+                    if ($d !== 0 && $moved < abs($d)) $note .= $moved ? ", only $moved" : ', blocked';
+                    if ($pushed) $note .= ', pushes ' . implode(' & ', $pushed);
+                    $options[] = (string)$d;
+                    $labels[(string)$d] = "$what ($note)";
+                }
+                $state['fight']['pending'] = [
+                    'kind' => 'move', 'team' => $team_key, 'mech' => $mech_idx,
+                    'count' => 1, 'options' => $options, 'labels' => $labels, 'source' => $a['source'],
+                ];
+                $state['fight']['log'][] = "$pilot_name's {$a['source']}: choose where to move (up to {$a['amount']}).";
                 break;
 
             case 'activate_empty':
@@ -382,6 +400,9 @@ class Fight {
                     // Sensor: acquire target lock(s), one enemy at a time
                     $gains = array_fill(0, (int)$m[1], ['type' => 'gain_lock', 'source' => $name]);
                     array_unshift($state['fight']['turn']['steps'], ...$gains);
+
+                } elseif (preg_match('/\bMOVE\s+(\d+)/i', $effect, $m)) {
+                    array_unshift($state['fight']['turn']['steps'], ['type' => 'choose_move', 'amount' => (int)$m[1], 'source' => $name]);
 
                 } elseif (preg_match('/\+(\d+)\s*ENRG/i', $effect, $m)) {
                     // Generator: new cubes in any empty energy slots on this mech
@@ -523,6 +544,38 @@ class Fight {
         }
 
         return $state;
+    }
+
+    /**
+     * Move a mech $delta tiles (positive = forward, toward the enemy side), one step
+     * at a time: a single enemy on the next tile is pushed ahead, two enemies or the
+     * arena edge (for the mech or the pushed enemy) stop the rest of the move.
+     * Teammates don't block. Returns [state, steps moved, names of pushed mechs].
+     */
+    private static function moveMech(array $state, string $team_key, int $mech_idx, int $delta): array {
+        // Team 1 forward = +tile, Team 2 forward = -tile
+        $dir    = ($team_key === '1' ? 1 : -1) * ($delta >= 0 ? 1 : -1);
+        $opp    = $team_key === '1' ? '2' : '1';
+        $moved  = 0;
+        $pushed = [];
+        for ($s = 0; $s < abs($delta); $s++) {
+            $new_pos = $state['fight']['mechs'][$team_key][$mech_idx]['pos'] + $dir;
+            if ($new_pos < 0 || $new_pos >= self::BOARD_TILES) break;
+            $enemies_at = [];
+            foreach ($state['fight']['mechs'][$opp] as $ei => $em) {
+                if ($em['hp'] > 0 && $em['pos'] === $new_pos) $enemies_at[] = $ei;
+            }
+            if (count($enemies_at) >= 2) break; // two enemies block
+            if (count($enemies_at) === 1) {
+                $push = $new_pos + $dir;
+                if ($push < 0 || $push >= self::BOARD_TILES) break; // wall behind the enemy
+                $state['fight']['mechs'][$opp][$enemies_at[0]]['pos'] = $push;
+                $pushed[$state['fight']['mechs'][$opp][$enemies_at[0]]['pilot_name']] = true;
+            }
+            $state['fight']['mechs'][$team_key][$mech_idx]['pos'] = $new_pos;
+            $moved++;
+        }
+        return [$state, $moved, array_keys($pushed)];
     }
 
     private static function logLine(array $state, string $line): array {
