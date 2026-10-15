@@ -874,7 +874,8 @@ class Fight {
     }
 
     private static function loadModules(): array {
-        return array_column(
+        static $modules = null;   // read once per request (and once per simulator run)
+        return $modules ??= array_column(
             json_decode(file_get_contents(__DIR__ . '/../data/cards/modules.json'), true),
             null, 'id'
         );
