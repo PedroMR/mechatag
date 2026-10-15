@@ -96,21 +96,22 @@ class Draft {
         $state['draft'] = [
             'round'        => 1,
             'step'         => 'initial',
-            'hands'        => ['1' => self::drawHand($state), '2' => self::drawHand($state)],
+            'hands'        => self::drawHands($state),
             'player_picks' => [],   // player_id → [pos, ...]
             'collected'    => ['1' => [], '2' => []],
         ];
-        return $state;
+        return self::skipEmptyHands($state);
     }
 
     /**
-     * Draw a 6-card hand from the game's decks (by reference).
-     * First round: 6 Tier-I. Later rounds: 3 Tier-I + 3 Tier-II.
-     * Tier-I shortfalls come from the discards, then Tier-II.
+     * Deal both teams' 6-card hands from the game's decks (by reference), with the
+     * same tier mix for each team. First round: 6 Tier-I each; later rounds:
+     * 3 Tier-I + 3 Tier-II each. A tier that runs short refills from discards of
+     * that same tier; if it still can't cover both teams equally, both get fewer of
+     * it and the other tier makes up the difference.
      */
-    private static function drawHand(array &$state): array {
+    private static function drawHands(array &$state): array {
         $first = ($state['game_round'] ?? 1) <= 1;
-        $want  = $first ? ['t1' => 6, 't2' => 0] : ['t1' => 3, 't2' => 3];
         // Drafts started before the game-wide decks existed kept their deck in the draft
         $state['decks'] ??= [
             't1'      => $state['draft']['deck'] ?? self::buildDeck(1),
@@ -119,21 +120,44 @@ class Draft {
         ];
         unset($state['draft']['deck']);
         $d     = &$state['decks'];
+        $tiers = array_column(
+            json_decode(file_get_contents(__DIR__ . '/../data/cards/modules.json'), true), 'tier', 'id'
+        );
+        shuffle($d['discard']);
 
-        $hand = array_splice($d['t1'], 0, $want['t1']);
-        if (count($hand) < $want['t1']) {
-            shuffle($d['discard']);
-            $hand = array_merge($hand, array_splice($d['discard'], 0, $want['t1'] - count($hand)));
+        // Cards available per tier: its deck plus its discards
+        $avail = [1 => count($d['t1']), 2 => count($d['t2'])];
+        foreach ($d['discard'] as $cid) {
+            $t = (int)($tiers[$cid] ?? 0);
+            if (isset($avail[$t])) $avail[$t]++;
         }
-        $hand = array_merge($hand, array_splice($d['t2'], 0, 6 - count($hand)));
 
-        // Still short (very long games): take whatever is left anywhere
-        foreach (['t1', 'discard'] as $k) {
-            if (count($hand) < 6) $hand = array_merge($hand, array_splice($d[$k], 0, 6 - count($hand)));
+        // Per-team counts, identical for both teams
+        $n1 = min($first ? 6 : 3, intdiv($avail[1], 2));
+        $n2 = min(6 - $n1, intdiv($avail[2], 2));
+        if ($n1 + $n2 < 6) $n1 = min(6 - $n2, intdiv($avail[1], 2));
+
+        // Take $n cards of a tier: from its deck first, then from its discards
+        $take = function (int $tier, int $n) use (&$d, $tiers): array {
+            $cards = array_splice($d['t' . $tier], 0, $n);
+            foreach ($d['discard'] as $i => $cid) {
+                if (count($cards) >= $n) break;
+                if ((int)($tiers[$cid] ?? 0) !== $tier) continue;
+                $cards[] = $cid;
+                unset($d['discard'][$i]);
+            }
+            $d['discard'] = array_values($d['discard']);
+            return $cards;
+        };
+
+        $hands = [];
+        foreach (['1', '2'] as $tk) {
+            $hand = array_merge($take(1, $n1), $take(2, $n2));
+            shuffle($hand);
+            $hands[$tk] = $hand;
         }
         unset($d);
-        shuffle($hand);
-        return $hand;
+        return $hands;
     }
 
     // -------------------------------------------------------------------------
@@ -168,7 +192,22 @@ class Draft {
     }
 
     public static function isTeamReady(array $state, int $team): bool {
-        return count(self::getTeamUniquePicks($state, $team)) === 2;
+        // Two picks, or the whole hand when the decks ran low and it holds fewer
+        $needed = min(2, count($state['draft']['hands'][(string)$team] ?? []));
+        return $needed > 0 && count(self::getTeamUniquePicks($state, $team)) === $needed;
+    }
+
+    /**
+     * When the decks have run dry both hands can be empty; there is nothing to
+     * pick, so move on (to the next hand, or straight to configuration).
+     */
+    private static function skipEmptyHands(array $state): array {
+        if (($state['phase'] ?? '') === 'draft'
+            && empty($state['draft']['hands']['1']) && empty($state['draft']['hands']['2'])) {
+            $state['draft']['ended_early'] = true;
+            $state = self::advance($state);
+        }
+        return $state;
     }
 
     // -------------------------------------------------------------------------
@@ -269,8 +308,7 @@ class Draft {
                 $state['draft']['round']++;
                 $state['draft']['step'] = 'initial';
 
-                $state['draft']['hands']['1'] = self::drawHand($state);
-                $state['draft']['hands']['2'] = self::drawHand($state);
+                $state['draft']['hands'] = self::drawHands($state);
             } else {
                 // Draft complete → mech configuration
                 $empty_equip = ['head'=>[],'torso'=>[],'r_arm'=>[],'l_arm'=>[],'legs'=>[]];
@@ -302,11 +340,14 @@ class Draft {
                     ],
                     'ready'   => ['1' => false, '2' => false],
                 ];
+                if (!empty($state['draft']['ended_early'])) {
+                    $state['config']['notice'] = 'The module decks ran out, so this draft ended early.';
+                }
                 unset($state['draft']);
             }
         }
 
-        return $state;
+        return self::skipEmptyHands($state);
     }
 
     private static function remainingCards(array $hand, array $picked_positions): array {

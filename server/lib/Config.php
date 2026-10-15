@@ -184,6 +184,7 @@ class Config {
             'modules'        => $state['config']['modules'][$team_key] ?? [],
             'available'      => $available,
             'mechs'          => $mechs_out,
+            'notice'         => $state['config']['notice'] ?? null,
             'my_team_ready'  => (bool)($state['config']['ready'][$team_key] ?? false),
             'opp_team_ready' => (bool)($state['config']['ready'][$opp_key]  ?? false),
         ];

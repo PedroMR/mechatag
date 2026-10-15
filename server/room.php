@@ -345,6 +345,8 @@ foreach ($pilots_raw['pilots'] as $p) {
                     </div>
                 </div>
 
+                <div class="config-notice" x-show="configState?.notice" x-text="configState?.notice"></div>
+
                 <!-- Available cards pool -->
                 <div class="draft-section-label">
                     Available Cards (<span x-text="configState?.available?.length ?? 0"></span>)
