@@ -685,7 +685,7 @@ foreach ($pilots_raw['pilots'] as $p) {
 
             <!-- Full-card preview on hover (fight mode) -->
             <div class="module-card card-preview" x-show="preview.id" x-cloak
-                 :style="'left:' + preview.x + 'px; top:' + preview.y + 'px'">
+                 :style="{ left: preview.x + 'px', top: preview.y + 'px' }">
                 <div class="card-top">
                     <div class="card-name" x-text="cardInfo(preview.id)?.name ?? preview.id"></div>
                     <div class="card-hp" x-html="hardpointIcons(cardInfo(preview.id))"></div>

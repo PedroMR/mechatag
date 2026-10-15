@@ -291,7 +291,11 @@ class Fight {
                 );
                 if (!$ids) $steps[] = ['type' => 'activate_empty', 'slot' => $slot];
                 foreach ($ids as $id) {
-                    $steps[] = ['type' => 'module', 'id' => $id, 'slot' => $slot, 'is_part' => $id === $mech['slots'][$slot]];
+                    $steps[] = [
+                        'type' => 'module', 'id' => $id, 'slot' => $slot,
+                        'is_part'   => $id === $mech['slots'][$slot],
+                        'part_only' => empty($mech['equipment'][$slot]),   // nothing else to activate here
+                    ];
                 }
             } else {
                 $steps[] = $a;
@@ -448,6 +452,9 @@ class Fight {
 
                 } elseif (!$a['is_part']) {
                     $state['fight']['log'][] = "$pilot_name uses $name.";
+                } elseif (!empty($a['part_only'])) {
+                    $slot_lbl = strtoupper(str_replace('_', ' ', $a['slot']));
+                    $state['fight']['log'][] = "$pilot_name activates $slot_lbl (no equipment).";
                 }
                 break;
 

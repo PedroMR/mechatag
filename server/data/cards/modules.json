@@ -233,7 +233,7 @@
         "effects": "ATK 2 IMP",
         "hardpoints_offered": 0,
         "hardpoints_required": 1,
-        "range": "12"
+        "range": "1"
     },
     {
         "id": "thrusters",
