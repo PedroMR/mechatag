@@ -1,21 +1,82 @@
 {
-  "pilots": [
-    {"id":"blue",   "name":"Lapis"},
-    {"id":"green",  "name":"Damien"},
-    {"id":"purple", "name":"Kaori"},
-    {"id":"black",  "name":"Sakharov"}
-  ],
-  "action_cards": [
-    {"id":"forth",     "name":"Forth!",          "copies":2, "effect":"FORW 2"},
-    {"id":"strike",    "name":"Forward Strike",   "copies":1, "effect":"FORW 1, R ARM"},
-    {"id":"stepback",  "name":"Step Back",        "copies":1, "effect":"BACK 1"},
-    {"id":"punch",     "name":"Jab",              "copies":2, "effect":"IMP+1, R ARM"},
-    {"id":"energize",  "name":"Energize",         "copies":1, "effect":"LSR+1, R ARM"},
-    {"id":"aim",       "name":"Take Aim",         "copies":1, "effect":"PRJ+1, R ARM"},
-    {"id":"guard",     "name":"Guard Up",         "copies":3, "effect":"DEF 1, L ARM"},
-    {"id":"backfire",  "name":"Retreat",          "copies":1, "effect":"DEF 1, BACK 1"},
-    {"id":"jumpback",  "name":"Jump Back",        "copies":2, "effect":"LEGS, BACK 2"},
-    {"id":"torso",     "name":"Center Launch",    "copies":2, "effect":"EXP+1, TORSO"},
-    {"id":"recharge",  "name":"Core Charge",      "copies":3, "effect":"HEAD, CORE"}
-  ]
+    "pilots": [
+        {
+            "id": "blue",
+            "name": "Lapis"
+        },
+        {
+            "id": "green",
+            "name": "Damien"
+        },
+        {
+            "id": "purple",
+            "name": "Kaori"
+        },
+        {
+            "id": "black",
+            "name": "Sakharov"
+        }
+    ],
+    "action_cards": [
+        {
+            "id": "forth",
+            "name": "Forth!",
+            "copies": 1,
+            "effect": "FORW 2"
+        },
+        {
+            "id": "strike",
+            "name": "Forward Strike",
+            "copies": 2,
+            "effect": "FORW 1, R ARM"
+        },
+        {
+            "id": "punch",
+            "name": "Jab",
+            "copies": 1,
+            "effect": "IMP+1, R ARM"
+        },
+        {
+            "id": "energize",
+            "name": "Energize",
+            "copies": 1,
+            "effect": "LSR+1, L ARM"
+        },
+        {
+            "id": "aim",
+            "name": "Take Aim",
+            "copies": 1,
+            "effect": "PRJ+1, R ARM"
+        },
+        {
+            "id": "guard",
+            "name": "Guard Up",
+            "copies": 2,
+            "effect": "DEF 1, L ARM"
+        },
+        {
+            "id": "backfire",
+            "name": "Retreat",
+            "copies": 1,
+            "effect": "DEF 1, BACK 1"
+        },
+        {
+            "id": "jumpback",
+            "name": "Jump Back",
+            "copies": 2,
+            "effect": "LEGS, BACK 1"
+        },
+        {
+            "id": "torso",
+            "name": "Center Launch",
+            "copies": 2,
+            "effect": "EXP+1, TORSO"
+        },
+        {
+            "id": "recharge",
+            "name": "Core Charge",
+            "copies": 2,
+            "effect": "HEAD, CORE"
+        }
+    ]
 }

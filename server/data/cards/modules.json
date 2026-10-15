@@ -105,7 +105,7 @@
             "arm",
             "torso"
         ],
-        "effects": "ATK 2 EXP",
+        "effects": "LOCK-1: ATK 1 EXP",
         "hardpoints_offered": 0,
         "hardpoints_required": 1,
         "energy_min": 1,
@@ -364,7 +364,7 @@
         "parts": [
             "arm"
         ],
-        "effects": "ATK 3 IMP",
+        "effects": "ATK 2 IMP",
         "hardpoints_offered": 0,
         "hardpoints_required": 1,
         "energy_min": 1,
