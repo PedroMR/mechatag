@@ -962,6 +962,14 @@ input[type=text]:disabled { opacity: 0.4; cursor: not-allowed; }
     color: #60b0ff;
 }
 
+.fight-locks { display: flex; flex-wrap: wrap; gap: 0.25rem; }
+.fight-lock {
+    font-size: 0.68rem;
+    font-weight: 600;
+    padding: 0.05rem 0.4rem;
+    border-radius: 3px;
+}
+
 .fight-hp-bar-wrap {
     height: 6px;
     background: var(--border);

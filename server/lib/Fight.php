@@ -61,6 +61,7 @@ class Fight {
                     'hp'         => $max_hp,
                     'max_hp'     => $max_hp,
                     'pos'        => self::START_POS[$tk],
+                    'locks'      => [],   // pilot colors of enemy mechs this mech has a target lock on
                     'slots'      => $mech['slots'],
                     'equipment'  => $mech['equipment'],
                 ];
@@ -211,6 +212,21 @@ class Fight {
 
         $modules_by_id = self::loadModules();
 
+        if ($pending['kind'] === 'lock' || $pending['kind'] === 'spend_lock') {
+            unset($state['fight']['pending']);
+            $pilot_name = $state['fight']['mechs'][$team][$pending['mech']]['pilot_name'];
+            if ($pending['kind'] === 'lock') {
+                $state = $ids
+                    ? self::addLock($state, $ids[0])
+                    : self::logLine($state, "$pilot_name doesn't lock onto anyone.");
+            } elseif ($ids) {
+                array_unshift($state['fight']['turn']['steps'], $pending['attack'] + ['lock' => $ids[0]]);
+            } else {
+                $state['fight']['log'][] = "$pilot_name holds fire with {$pending['source']}; no lock spent.";
+            }
+            return self::checkDeckEnd(self::runSteps($state));
+        }
+
         if ($pending['kind'] === 'defend') {
             // Pay each chosen shield's energy and pool its DEF with the free ones
             $def   = $pending['free_def'];
@@ -358,7 +374,12 @@ class Fight {
                 $effect = $module['effects'] ?? '';
                 $atk    = self::parseEquipEffect($effect);
 
-                if (preg_match('/\+(\d+)\s*ENRG/i', $effect, $m)) {
+                if (preg_match('/\bLOCK\+(\d+)/i', $effect, $m)) {
+                    // Sensor: acquire target lock(s), one enemy at a time
+                    $gains = array_fill(0, (int)$m[1], ['type' => 'gain_lock', 'source' => $name]);
+                    array_unshift($state['fight']['turn']['steps'], ...$gains);
+
+                } elseif (preg_match('/\+(\d+)\s*ENRG/i', $effect, $m)) {
                     // Generator: new cubes in any empty energy slots on this mech
                     $state = self::openCharge($state, (int)$m[1], $name);
 
@@ -370,6 +391,21 @@ class Fight {
 
                     $opp_team = $team_key === '1' ? '2' : '1';
                     $atk_pos  = $state['fight']['mechs'][$team_key][$mech_idx]['pos'];
+
+                    if (preg_match('/\bLOCK-\d+\s*:/i', $effect)) {
+                        $state = self::startLockedAttack($state, [
+                            'type'     => 'locked_attack',
+                            'id'       => $id,
+                            'weapon'   => $name,
+                            'dmg'      => $total_dmg,
+                            'atk_type' => $atk['atk_type'],
+                            'cost'     => (int)($module['energy_min'] ?? 0),
+                            'range'    => (string)($module['range'] ?? ''),
+                            'aoe'      => $module['aoe'] ?? null,
+                        ]);
+                        break;
+                    }
+
                     $targets  = self::findTargets(
                         $state, $opp_team, $atk_pos,
                         (string)($module['range'] ?? ''), $module['aoe'] ?? null
@@ -431,11 +467,113 @@ class Fight {
                 $state = self::resolveHit($state, $a, $modules_by_id);
                 break;
 
+            case 'gain_lock':
+                $mech    = $state['fight']['mechs'][$team_key][$mech_idx];
+                $opp     = $team_key === '1' ? '2' : '1';
+                $options = [];
+                foreach ($state['fight']['mechs'][$opp] as $em) {
+                    if ($em['hp'] > 0 && !in_array($em['pilot'], $mech['locks'] ?? [], true)) $options[] = $em['pilot'];
+                }
+                if (!$options) {
+                    $state['fight']['log'][] = "$pilot_name's {$a['source']}: already locked onto every enemy.";
+                } elseif (count($options) === 1) {
+                    $state = self::addLock($state, $options[0]);
+                } else {
+                    $state['fight']['pending'] = [
+                        'kind' => 'lock', 'team' => $team_key, 'mech' => $mech_idx,
+                        'count' => 1, 'options' => $options, 'source' => $a['source'],
+                    ];
+                    $state['fight']['log'][] = "$pilot_name's {$a['source']}: choose an enemy to lock onto.";
+                }
+                break;
+
+            case 'locked_attack':
+                // Spend the chosen lock (energy was checked before choosing) and attack that mech
+                $mech_ref = &$state['fight']['mechs'][$team_key][$mech_idx];
+                $mech_ref['energy'][$a['id']] = ($mech_ref['energy'][$a['id']] ?? 0) - $a['cost'];
+                $mech_ref['locks'] = array_values(array_diff($mech_ref['locks'] ?? [], [$a['lock']]));
+                unset($mech_ref);
+
+                $opp = $team_key === '1' ? '2' : '1';
+                [, $tgt_idx] = self::findMechByPilot($state, $a['lock']);
+                $tgt_name = $state['fight']['mechs'][$opp][$tgt_idx]['pilot_name'];
+                $state['fight']['log'][] = "$pilot_name spends the lock on $tgt_name to fire {$a['weapon']}.";
+
+                $hits = [];
+                foreach (self::aoeTargets($state, $opp, $tgt_idx, $a['aoe']) as $idx) {
+                    $hits[] = [
+                        'type' => 'hit', 'team' => $opp, 'idx' => $idx,
+                        'dmg' => $a['dmg'], 'atk_type' => $a['atk_type'],
+                        'attacker' => $pilot_name, 'weapon' => $a['weapon'],
+                    ];
+                }
+                array_unshift($state['fight']['turn']['steps'], ...$hits);
+                break;
+
             case 'core':
                 $state = self::openCharge($state, self::CORE_CHARGES, 'CORE');
                 break;
         }
 
+        return $state;
+    }
+
+    private static function logLine(array $state, string $line): array {
+        $state['fight']['log'][] = $line;
+        return $state;
+    }
+
+    /** The active mech locks onto the enemy mech flown by $pilot. */
+    private static function addLock(array $state, string $pilot): array {
+        $team_key = $state['fight']['turn']['team'];
+        $mech_idx = $state['fight']['turn']['mech'];
+        $state['fight']['mechs'][$team_key][$mech_idx]['locks'][] = $pilot;
+        [$tt, $ti] = self::findMechByPilot($state, $pilot);
+        $state['fight']['log'][] = "{$state['fight']['mechs'][$team_key][$mech_idx]['pilot_name']} locks onto {$state['fight']['mechs'][$tt][$ti]['pilot_name']}.";
+        return $state;
+    }
+
+    /**
+     * A LOCK-1 weapon: needs a held lock on a live enemy within the weapon's range,
+     * and its energy cost. If the cost can't be paid the attack is cancelled and no
+     * lock is spent. With several usable locks the player picks one (or holds fire).
+     */
+    private static function startLockedAttack(array $state, array $attack): array {
+        $team_key   = $state['fight']['turn']['team'];
+        $mech_idx   = $state['fight']['turn']['mech'];
+        $mech       = $state['fight']['mechs'][$team_key][$mech_idx];
+        $pilot_name = $mech['pilot_name'];
+        $weapon     = $attack['weapon'];
+
+        $have = $mech['energy'][$attack['id']] ?? 0;
+        if ($have < $attack['cost']) {
+            $state['fight']['log'][] = "$pilot_name tries to fire $weapon, but it lacks energy ($have/{$attack['cost']}). No lock spent.";
+            return $state;
+        }
+
+        $usable = [];
+        foreach ($mech['locks'] ?? [] as $pilot) {
+            [$tt, $ti] = self::findMechByPilot($state, $pilot);
+            if ($tt === null) continue;
+            $tgt = $state['fight']['mechs'][$tt][$ti];
+            if ($tgt['hp'] > 0 && str_contains($attack['range'], (string)abs($tgt['pos'] - $mech['pos']))) $usable[] = $pilot;
+        }
+
+        if (!$usable) {
+            $state['fight']['log'][] = empty($mech['locks'])
+                ? "$pilot_name would fire $weapon, but has no target lock."
+                : "$pilot_name would fire $weapon, but no locked target is in range.";
+            return $state;
+        }
+        if (count($usable) === 1) {
+            array_unshift($state['fight']['turn']['steps'], $attack + ['lock' => $usable[0]]);
+            return $state;
+        }
+        $state['fight']['pending'] = [
+            'kind' => 'spend_lock', 'team' => $team_key, 'mech' => $mech_idx,
+            'count' => 1, 'options' => $usable, 'source' => $weapon, 'attack' => $attack,
+        ];
+        $state['fight']['log'][] = "$pilot_name readies $weapon: choose which lock to spend.";
         return $state;
     }
 
@@ -659,8 +797,13 @@ class Fight {
             }
         }
         if ($primary === null) return [];
-        if ($aoe !== 'tile' && $aoe !== 'neighbor') return [$primary];
+        return self::aoeTargets($state, $opp_team, $primary, $aoe);
+    }
 
+    /** The primary target plus, for AoE, live enemies on its tile ('tile') or also adjacent ones ('neighbor'). */
+    private static function aoeTargets(array $state, string $opp_team, int $primary, ?string $aoe): array {
+        if ($aoe !== 'tile' && $aoe !== 'neighbor') return [$primary];
+        $mechs  = $state['fight']['mechs'][$opp_team];
         $center = $mechs[$primary]['pos'];
         $reach  = $aoe === 'neighbor' ? 1 : 0;
         $hit = [];

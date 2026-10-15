@@ -537,6 +537,31 @@ foreach ($pilots_raw['pilots'] as $p) {
                             </div>
                         </div>
                     </template>
+                    <!-- Lock: pick an enemy to lock onto, or which held lock to spend on a LOCK-1 weapon -->
+                    <template x-if="(fightState?.pending?.kind === 'lock' || fightState?.pending?.kind === 'spend_lock') && myTeam === Number(fightState.pending.team)">
+                        <div>
+                            <div class="fight-choice-title"
+                                 x-text="fightState.pending.kind === 'lock'
+                                     ? fightState.pending.source + ': choose an enemy to lock onto'
+                                     : fightState.pending.source + ': choose which lock to spend'"></div>
+                            <div class="fight-choice-options">
+                                <template x-for="pilot in fightState.pending.options" :key="pilot">
+                                    <button class="fight-module fight-choice-opt"
+                                            :class="{ picked: chargePicks.includes(pilot) }"
+                                            @click="chargePicks = chargePicks.includes(pilot) ? [] : [pilot]">
+                                        <span class="pilot-dot" :class="'pilot-' + pilot" style="width:10px;height:10px"></span>
+                                        <span x-text="'🎯 ' + pilotName(pilot) + ' · tile ' + (enemyPos(pilot) + 1)"></span>
+                                    </button>
+                                </template>
+                            </div>
+                            <div class="fight-choice-actions">
+                                <button class="btn-sm" @click="fightChoose()" :disabled="chargePicks.length === 0"
+                                        x-text="fightState.pending.kind === 'lock' ? 'Lock on' : 'Spend lock & fire'"></button>
+                                <button class="btn-sm btn-ghost" @click="fightChoose(true)"
+                                        x-text="fightState.pending.kind === 'lock' ? 'Skip' : 'Hold fire'"></button>
+                            </div>
+                        </div>
+                    </template>
                     <template x-if="fightState?.pending?.kind === 'charge' && myTeam === Number(fightState.pending.team)">
                         <div>
                             <div class="fight-choice-title">
@@ -567,7 +592,7 @@ foreach ($pilots_raw['pilots'] as $p) {
                     </template>
                     <div class="fight-choice-wait"
                          x-show="fightState?.pending && myTeam !== Number(fightState?.pending?.team)"
-                         x-text="'Waiting for Team ' + (fightState?.pending?.team ?? '') + (fightState?.pending?.kind === 'defend' ? ' to choose shields…' : ' to choose modules to charge…')"></div>
+                         x-text="'Waiting for Team ' + (fightState?.pending?.team ?? '') + ({ defend: ' to choose shields…', lock: ' to choose a lock target…', spend_lock: ' to choose which lock to spend…' }[fightState?.pending?.kind] ?? ' to choose modules to charge…')"></div>
                 </div>
 
                 <!-- Arena board -->
@@ -605,6 +630,13 @@ foreach ($pilots_raw['pilots'] as $p) {
                                               x-show="mech.action_def"
                                               :title="'Usable against attacks until ' + mech.pilot_name + ' plays another card'"
                                               x-text="'🛡 DEF ' + (mech.action_def?.amount ?? '') + ' ' + (mech.action_def?.types ? mech.action_def.types.join('/') : 'any') + ' · ' + (mech.action_def?.card ?? '')"></span>
+                                    </div>
+                                    <div class="fight-locks" x-show="(mech.locks?.length ?? 0) > 0">
+                                        <template x-for="pilot in (mech.locks ?? [])" :key="pilot">
+                                            <span class="fight-lock" :class="'pilot-' + pilot"
+                                                  :title="mech.pilot_name + ' has a target lock on ' + pilotName(pilot)"
+                                                  x-text="'🎯 ' + pilotName(pilot)"></span>
+                                        </template>
                                     </div>
                                     <div class="fight-hp-bar-wrap">
                                         <div class="fight-hp-bar"
@@ -1114,6 +1146,13 @@ function roomApp() {
                 draw:       'Eliminations, damage and territory all tied.',
             }[r.decided_by];
             return `${how} ${by}`;
+        },
+
+        enemyPos(pilot) {
+            for (const tk of ['1', '2'])
+                for (const m of (this.fightState?.mechs?.[tk] ?? []))
+                    if (m.pilot === pilot) return m.pos;
+            return 0;
         },
 
         defendDamagePreview() {
