@@ -7,7 +7,7 @@
  *   php tools/simulate.php new <name>          Create a team profile (interactive wizard)
  *   php tools/simulate.php profiles            List saved profiles
  *   php tools/simulate.php show <name>         Print a profile's mechs
- *   php tools/simulate.php run <A> <B> [--fights=100 | -f 100] [--seed=N] [--log=K]
+ *   php tools/simulate.php run <A> <B> [--fights=100 | -f 100] [--seed=N] [--log=K] [--no-color]
  *                                              Fight profile A (team 1) against B (team 2)
  *
  * Profiles are JSON files in tools/profiles/. Loadouts are checked against the
@@ -19,6 +19,8 @@
  *   MOVE                       forward 1
  *   shields                    in the order offered, until the damage is fully blocked
  *   lock target / lock to use  the first one offered
+ *
+ * Output is colored when stdout is a terminal (disable with --no-color or NO_COLOR).
  *
  * Fight i uses seed (base seed + i), so --seed=S --log=K replays fight K exactly.
  */
@@ -36,6 +38,31 @@ function modules(): array {
     return $m ??= array_column(
         json_decode(file_get_contents(__DIR__ . '/../server/data/cards/modules.json'), true), null, 'id'
     );
+}
+
+// ── ANSI colors (off when stdout isn't a terminal, NO_COLOR is set, or --no-color) ──
+
+const C_NUM   = '38;5;75';     // numbers: light blue
+const C_HEAD  = '1';           // section headings and team labels: bold
+const C_DIM   = '2';           // side notes
+const C_LEAD  = '1;38;5;84';   // the better win percentage: bold green
+const C_TRAIL = '1;38;5;203';  // the worse win percentage: bold red
+const C_EVEN  = '1;38;5;221';  // draws, and win percentages when tied: bold yellow
+
+function color(string $code, string $s): string {
+    return USE_COLOR ? "\e[{$code}m$s\e[0m" : $s;
+}
+
+// Echoes a line with every number not already inside a colored span painted C_NUM.
+function out(string $s): void {
+    if (USE_COLOR) {
+        $inside = false;
+        $s = preg_replace_callback('/\e\[([\d;]*)m|\d+(?:\.\d+)?%?/', function ($m) use (&$inside) {
+            if (isset($m[1])) { $inside = $m[1] !== '0'; return $m[0]; }
+            return $inside ? $m[0] : color(C_NUM, $m[0]);
+        }, $s);
+    }
+    echo $s;
 }
 
 function fail(string $msg): never {
@@ -319,6 +346,7 @@ function cmd_run(string $name_a, string $name_b, array $opts): void {
 
     $team_of = ['Lapis' => 'A', 'Damien' => 'A', 'Kaori' => 'B', 'Sakharov' => 'B'];
     $label   = ['A' => "$name_a (team 1)", 'B' => "$name_b (team 2)"];
+    $plain   = $label;   // uncolored, for padding
     $wins    = ['A' => 0, 'B' => 0, 'draw' => 0];
     $by      = ['A' => [], 'B' => []];
     $ends    = ['wipe' => 0, 'deck' => 0];
@@ -343,8 +371,8 @@ function cmd_run(string $name_a, string $name_b, array $opts): void {
         tally_log($st['fight']['log'], $team_of, $usage);
 
         if ($log_k === $i) {
-            echo "── Fight $i log (seed ", $seed + $i, ") ──\n";
-            foreach ($st['fight']['log'] as $line) echo "  $line\n";
+            out(color(C_HEAD, '── Fight ' . $i . ' log (seed ' . ($seed + $i) . ') ──') . "\n");
+            foreach ($st['fight']['log'] as $line) out("  $line\n");
             echo "\n";
         }
     }
@@ -352,37 +380,43 @@ function cmd_run(string $name_a, string $name_b, array $opts): void {
     $pct  = fn($n) => sprintf('%5.1f%%', 100 * $n / $fights);
     $avg  = fn($n) => sprintf('%.1f', $n / $fights);
     $how  = ['eliminated' => 'eliminations', 'damage' => 'damage', 'progress' => 'territory'];
+    $pad  = fn($t, $w) => color(C_HEAD, $label[$t]) . str_repeat(' ', max(0, $w - strlen($plain[$t])));
+    $win_color = [
+        'A' => $wins['A'] === $wins['B'] ? C_EVEN : ($wins['A'] > $wins['B'] ? C_LEAD : C_TRAIL),
+        'B' => $wins['A'] === $wins['B'] ? C_EVEN : ($wins['B'] > $wins['A'] ? C_LEAD : C_TRAIL),
+    ];
 
-    echo "$fights fights · seed $seed (fight i uses seed+i; replay one with --seed=$seed --log=i)\n\n";
-    echo "Results\n";
+    out("$fights fights · seed $seed " . color(C_DIM, "(fight i uses seed+i; replay one with --seed=$seed --log=i)") . "\n\n");
+    out(color(C_HEAD, 'Results') . "\n");
     foreach (['A', 'B'] as $t) {
         $parts = [];
         foreach ($how as $k => $l) if (!empty($by[$t][$k])) $parts[] = "{$by[$t][$k]} by $l";
-        printf("  %-28s %5d wins  %s   %s\n", $label[$t], $wins[$t], $pct($wins[$t]), $parts ? '(' . implode(', ', $parts) . ')' : '');
+        out(sprintf("  %s %5d wins  %s   %s\n", $pad($t, 28), $wins[$t], color($win_color[$t], $pct($wins[$t])),
+            $parts ? '(' . implode(', ', $parts) . ')' : ''));
     }
-    printf("  %-28s %5d       %s\n\n", 'draws', $wins['draw'], $pct($wins['draw']));
+    out(sprintf("  %-28s %5d       %s\n\n", 'draws', $wins['draw'], color(C_EVEN, $pct($wins['draw']))));
 
-    echo "Fight stats (averages per fight)\n";
-    printf("  ended by wipe: %d · deck ran out: %d · cards flipped: %s\n", $ends['wipe'], $ends['deck'], $avg($sum['flips']));
+    out(color(C_HEAD, 'Fight stats') . color(C_DIM, ' (averages per fight)') . "\n");
+    out(sprintf("  ended by wipe: %d · deck ran out: %d · cards flipped: %s\n", $ends['wipe'], $ends['deck'], $avg($sum['flips'])));
     foreach (['A', 'B'] as $t) {
-        printf("  %-28s HP left %5s · damage dealt %5s · mechs lost %s\n",
-            $label[$t], $avg($sum[$t]['hp']), $avg($sum[$t]['dmg']), $avg($sum[$t]['lost']));
+        out(sprintf("  %s HP left %5s · damage dealt %5s · mechs lost %s\n",
+            $pad($t, 28), $avg($sum[$t]['hp']), $avg($sum[$t]['dmg']), $avg($sum[$t]['lost'])));
     }
 
-    echo "\nModule usage (totals over all fights)\n";
+    out("\n" . color(C_HEAD, 'Module usage') . color(C_DIM, ' (totals over all fights)') . "\n");
     foreach (['A', 'B'] as $t) {
-        echo "  {$label[$t]}\n";
-        if (!$usage[$t]['weapons']) echo "    no attacks\n";
+        out('  ' . color(C_HEAD, $label[$t]) . "\n");
+        if (!$usage[$t]['weapons']) out(color(C_DIM, '    no attacks') . "\n");
         ksort($usage[$t]['weapons']);
         foreach ($usage[$t]['weapons'] as $weapon => $u) {
-            printf("    %-20s hits %5d · damage %5d · no target in range %4d · no energy %4d · no lock %4d\n",
-                $weapon, $u['hits'] ?? 0, $u['damage'] ?? 0, $u['out_of_range'] ?? 0, $u['no_energy'] ?? 0, $u['no_lock'] ?? 0);
+            out(sprintf("    %-20s hits %5d · damage %5d · no target in range %4d · no energy %4d · no lock %4d\n",
+                $weapon, $u['hits'] ?? 0, $u['damage'] ?? 0, $u['out_of_range'] ?? 0, $u['no_energy'] ?? 0, $u['no_lock'] ?? 0));
         }
         ksort($usage[$t]['shields']);
-        foreach ($usage[$t]['shields'] as $shield => $n) printf("    %-20s blocked damage in %d hits\n", $shield, $n);
+        foreach ($usage[$t]['shields'] as $shield => $n) out(sprintf("    %-20s blocked damage in %d hits\n", $shield, $n));
     }
 
-    printf("\nTook %.1fs\n", microtime(true) - $t0);
+    out(sprintf("\nTook %.1fs\n", microtime(true) - $t0));
 }
 
 // ── CLI ──────────────────────────────────────────────────────────────────────
@@ -394,9 +428,12 @@ for ($i = 0; $i < count($args); $i++) {
     $arg = $args[$i];
     if (preg_match('/^--(\w+)=(.*)$/', $arg, $m))  $opts[$m[1]] = $m[2];
     elseif (preg_match('/^-f=?(\d+)$/', $arg, $m)) $opts['fights'] = $m[1];   // -f N, -f=N, -fN
+    elseif ($arg === '--no-color')                  $opts['no-color'] = true;
     elseif ($arg === '-f')                          $opts['fights'] = $args[++$i] ?? '';
     else $pos[] = $arg;
 }
+
+define('USE_COLOR', empty($opts['no-color']) && getenv('NO_COLOR') === false && stream_isatty(STDOUT));
 
 match ($pos[0] ?? '') {
     'new'      => isset($pos[1]) ? cmd_new($pos[1]) : fail('usage: simulate.php new <name>'),
