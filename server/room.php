@@ -269,34 +269,28 @@ foreach ($pilots_raw['pilots'] as $p) {
                                     <img :src="'images/ulysses' + capFirst(mechPilotColor(mechIdx, side.team)) + '.png'"
                                          class="mech-img" alt="Mech">
                                     <div class="mech-label" x-text="mechLabel(mechIdx, side.team)"></div>
-                                    <!-- Loadout kept from the last round -->
-                                    <template x-if="side.mechs[mechIdx]">
-                                        <div class="fight-loadout draft-loadout">
-                                            <template x-for="slot in ['head','torso','r_arm','l_arm','legs']" :key="slot">
-                                                <div class="fight-slot"
-                                                     x-show="side.mechs[mechIdx].slots?.[slot] || (side.mechs[mechIdx].equipment?.[slot]?.length ?? 0) > 0">
-                                                    <span class="slot-label" x-text="slotLabel(slot)"></span>
-                                                    <span class="fight-module" :class="{ 'is-default': !side.mechs[mechIdx].slots?.[slot] }"
-                                                          @mouseenter="showCardPreview(side.mechs[mechIdx].slots?.[slot], $event)"
+                                    <!-- Loadout kept from the last round; every slot shows, empty or not -->
+                                    <div class="fight-loadout draft-loadout"
+                                         x-data="{ get m() { return side.mechs[mechIdx] ?? {} } }">
+                                        <template x-for="slot in ['head','torso','r_arm','l_arm','legs']" :key="slot">
+                                            <div class="fight-slot">
+                                                <span class="slot-label" x-text="slotLabel(slot)"></span>
+                                                <span class="fight-module" :class="{ 'is-default': !m.slots?.[slot] }"
+                                                      @mouseenter="showCardPreview(m.slots?.[slot], $event)"
+                                                      @mouseleave="hideCardPreview()"
+                                                      x-text="m.slots?.[slot]
+                                                          ? (cardInfo(m.slots[slot])?.name ?? m.slots[slot])
+                                                          : 'Default'"></span>
+                                                <template x-for="(eqId, ei) in (m.equipment?.[slot] ?? [])" :key="ei">
+                                                    <span class="fight-module is-equip"
+                                                          @mouseenter="showCardPreview(eqId, $event)"
                                                           @mouseleave="hideCardPreview()"
-                                                          x-text="side.mechs[mechIdx].slots?.[slot]
-                                                              ? (cardInfo(side.mechs[mechIdx].slots[slot])?.name ?? side.mechs[mechIdx].slots[slot])
-                                                              : (slot === 'head' ? '—' : 'Default')"></span>
-                                                    <template x-for="(eqId, ei) in (side.mechs[mechIdx].equipment?.[slot] ?? [])" :key="ei">
-                                                        <span class="fight-module is-equip"
-                                                              @mouseenter="showCardPreview(eqId, $event)"
-                                                              @mouseleave="hideCardPreview()"
-                                                              x-text="cardInfo(eqId)?.name ?? eqId"></span>
-                                                    </template>
-                                                </div>
-                                            </template>
-                                            <div class="draft-loadout-empty"
-                                                 x-show="!Object.values(side.mechs[mechIdx].slots ?? {}).some(Boolean)
-                                                      && !Object.values(side.mechs[mechIdx].equipment ?? {}).some(e => e.length)">
-                                                No modules equipped
+                                                          x-text="cardInfo(eqId)?.name ?? eqId"></span>
+                                                </template>
+                                                <span class="equip-empty" x-show="(m.equipment?.[slot]?.length ?? 0) === 0">—</span>
                                             </div>
-                                        </div>
-                                    </template>
+                                        </template>
+                                    </div>
                                 </div>
                             </template>
                         </div>
@@ -415,8 +409,7 @@ foreach ($pilots_raw['pilots'] as $p) {
                                             </div>
                                         </div>
                                         <!-- Equipment attached to this slot -->
-                                        <div class="slot-equip-row"
-                                             x-show="(mech.slot_hp?.[slot]?.available ?? 0) > 0 || (mech.equipment?.[slot]?.length ?? 0) > 0">
+                                        <div class="slot-equip-row">
                                             <template x-for="(eqId, ei) in (mech.equipment?.[slot] ?? [])" :key="ei">
                                                 <div class="equip-tag"
                                                      @mouseenter="showCardPreview(eqId, $event)"
@@ -427,6 +420,10 @@ foreach ($pilots_raw['pilots'] as $p) {
                                                     <span class="equip-remove">×</span>
                                                 </div>
                                             </template>
+                                            <div class="equip-empty"
+                                                 x-show="(mech.equipment?.[slot]?.length ?? 0) === 0 && !(selectedCard && cardInfo(selectedCard)?.type === 'equipment' && slotAcceptsEquip(slot, cardInfo(selectedCard), mech))">
+                                                —
+                                            </div>
                                             <div class="equip-drop-zone"
                                                  x-show="selectedCard && cardInfo(selectedCard)?.type === 'equipment' && slotAcceptsEquip(slot, cardInfo(selectedCard), mech)"
                                                  @click.stop="configEquipAdd(mechIdx, slot)">
@@ -1180,7 +1177,7 @@ function roomApp() {
         },
 
         slotDefault(slot) {
-            return slot === 'head' ? '— (empty)' : 'Default (1 hardp)';
+            return slot === 'head' ? 'Default' : 'Default (1 hardp)';
         },
 
         slotClass(mech, slot) {
