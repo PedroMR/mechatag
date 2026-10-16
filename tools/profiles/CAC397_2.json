@@ -1,0 +1,50 @@
+{
+    "mechs": [
+        {
+            "slots": {
+                "head": null,
+                "torso": "gen_torso",
+                "r_arm": "razor_arm",
+                "l_arm": null,
+                "legs": "gliding_legs"
+            },
+            "equipment": {
+                "head": [],
+                "torso": [],
+                "r_arm": [
+                    "axe",
+                    "hidden_blade"
+                ],
+                "l_arm": [
+                    "light_shield"
+                ],
+                "legs": []
+            }
+        },
+        {
+            "slots": {
+                "head": "ballistic_head",
+                "torso": "tough_torso",
+                "r_arm": null,
+                "l_arm": null,
+                "legs": "siege_legs"
+            },
+            "equipment": {
+                "head": [],
+                "torso": [
+                    "small_laser"
+                ],
+                "r_arm": [
+                    "shotgun",
+                    "hidden_blade"
+                ],
+                "l_arm": [
+                    "light_mg"
+                ],
+                "legs": [
+                    "grenade"
+                ]
+            }
+        }
+    ]
+}

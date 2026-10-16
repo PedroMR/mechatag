@@ -262,19 +262,7 @@ class Fight {
             return self::checkDeckEnd(self::runSteps($state));
         }
 
-        $mech  = &$state['fight']['mechs'][$team][$pending['mech']];
-        $names = [];
-        foreach ($ids as $id) {
-            $max = (int)($modules_by_id[self::baseId($id)]['energy_max'] ?? 0);
-            $mech['energy'][$id] = min($max, ($mech['energy'][$id] ?? 0) + 1);
-            $names[] = $modules_by_id[self::baseId($id)]['name'] ?? $id;
-        }
-        $pilot_name = $mech['pilot_name'];
-        unset($mech);
-
-        $state['fight']['log'][] = $names
-            ? "$pilot_name charges " . implode(', ', $names) . (count($names) > 1 ? " (+1 energy each)." : " (+1 energy).")
-            : "$pilot_name skips charging.";
+        $state = self::chargeModules($state, $team, $pending['mech'], $ids, '');
         unset($state['fight']['pending']);
 
         return self::checkDeckEnd(self::runSteps($state));
@@ -745,6 +733,25 @@ class Fight {
      * active mech to receive 1 energy cube each. Full modules can't be picked;
      * if none can take a cube, the charge fizzles without asking.
      */
+    /** +1 energy on each listed module (up to its max), logged. */
+    private static function chargeModules(array $state, string $team_key, int $mech_idx, array $ids, string $how): array {
+        $modules_by_id = self::loadModules();
+        $mech  = &$state['fight']['mechs'][$team_key][$mech_idx];
+        $names = [];
+        foreach ($ids as $id) {
+            $max = (int)($modules_by_id[self::baseId($id)]['energy_max'] ?? 0);
+            $mech['energy'][$id] = min($max, ($mech['energy'][$id] ?? 0) + 1);
+            $names[] = $modules_by_id[self::baseId($id)]['name'] ?? $id;
+        }
+        $pilot_name = $mech['pilot_name'];
+        unset($mech);
+
+        $state['fight']['log'][] = $names
+            ? "$pilot_name charges " . implode(', ', $names) . $how . (count($names) > 1 ? " (+1 energy each)." : " (+1 energy).")
+            : "$pilot_name skips charging.";
+        return $state;
+    }
+
     private static function openCharge(array $state, int $count, string $source): array {
         $team_key = $state['fight']['turn']['team'];
         $mech_idx = $state['fight']['turn']['mech'];
@@ -762,7 +769,11 @@ class Fight {
             return $state;
         }
 
-        $count = min($count, count($options));
+        // Nothing to decide when every module that can take energy gets some
+        if (count($options) <= $count) {
+            return self::chargeModules($state, $team_key, $mech_idx, $options, " with $source");
+        }
+
         $state['fight']['pending'] = [
             'kind'    => 'charge',
             'team'    => $team_key,
