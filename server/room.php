@@ -346,7 +346,7 @@ foreach ($pilots_raw['pilots'] as $p) {
                     Available Cards (<span x-text="configState?.available?.length ?? 0"></span>)
                 </div>
                 <div class="card-grid card-grid-sm" x-show="(configState?.available?.length ?? 0) > 0">
-                    <template x-for="(cardId, idx) in (configState?.available ?? [])" :key="idx">
+                    <template x-for="cardId in sortedAvailable" :key="cardId">
                         <div class="module-card"
                              :class="{ 'card-mine': selectedCard === cardId }"
                              @click="configSelectCard(cardId)">
@@ -472,9 +472,9 @@ foreach ($pilots_raw['pilots'] as $p) {
                                 @click="fightFlip()">
                             Flip Card
                         </button>
-                        <button class="fight-autoplay-btn" :class="{ active: autoplay }"
+                        <button class="fight-autoplay-btn" :class="{ active: autoplay, waiting: autoWaiting }"
                                 :disabled="!autoplay && !canFlip"
-                                :title="autoplay ? 'Pause autoplay' : 'Autoplay: flip a card every 3 seconds until a decision is needed'"
+                                :title="autoWaiting ? 'Autoplay resumes once the decision is made (click to pause)' : autoplay ? 'Pause autoplay' : 'Autoplay: flip a card every 3 seconds'"
                                 :aria-label="autoplay ? 'Pause autoplay' : 'Start autoplay'"
                                 @click="toggleAutoplay()">
                             <svg x-show="!autoplay" viewBox="0 0 16 16" width="16" height="16"><path d="M4 2.5v11l9.5-5.5z" fill="currentColor"/></svg>
@@ -834,6 +834,7 @@ function roomApp() {
         preview:     { id: null, x: 0, y: 0 },
         selectedCard: null,
         autoplay: false,
+        autoWaiting: false,   // autoplay on, holding for a decision
         autoTimer: null,
         ARROW_COLORS: { blue: '#4090ff', green: '#40c870', purple: '#a050e0', black: '#a0a0b0' },
         boardW: 0,
@@ -882,7 +883,8 @@ function roomApp() {
             const prevLogLen = this.fightState?.log?.length ?? 0;
             this.fightState  = data.fight;
             if (!this.fightState?.pending) this.chargePicks = [];
-            if (this.autoplay && (this.phase !== 'fight' || !this.canFlip)) this.stopAutoplay();
+            if (this.autoplay && this.autoplayOver) this.stopAutoplay();
+            else if (this.autoWaiting && !this.fightState?.pending) this.autoContinue();
             if (this.phase !== prevPhase) this.selectedCard = null;
             if ((data.fight?.log?.length ?? 0) !== prevLogLen) this.renderFightLog();
 
@@ -1130,6 +1132,17 @@ function roomApp() {
             return { x: p.x + (q.x - p.x) * r / d, y: p.y + (q.y - p.y) * r / d };
         },
 
+        // Config pool order: higher tier first, then parts before equipment, then by name
+        get sortedAvailable() {
+            const TYPE = { part: 0, equipment: 1 };
+            return (this.configState?.available ?? []).slice().sort((a, b) => {
+                const ca = this.cardInfo(a) ?? {}, cb = this.cardInfo(b) ?? {};
+                return (cb.tier ?? 0) - (ca.tier ?? 0)
+                    || (TYPE[ca.type] ?? 2) - (TYPE[cb.type] ?? 2)
+                    || (ca.name ?? a).localeCompare(cb.name ?? b);
+            });
+        },
+
         get canFlip() {
             const f = this.fightState;
             return (f?.deck_count ?? 0) > 0 && !f?.pending && !f?.result;
@@ -1262,8 +1275,9 @@ function roomApp() {
             await this.poll();
         },
 
-        // Autoplay: flip now, then every AUTOPLAY_MS, until a decision is
-        // needed, the fight ends or the player pauses.
+        // Autoplay: flip now, then every AUTOPLAY_MS. It holds while a decision
+        // is pending and carries on once it's made; it ends when the fight
+        // does, the deck runs out, or the player pauses.
         toggleAutoplay() {
             if (this.autoplay) { this.stopAutoplay(); return; }
             if (!this.canFlip) return;
@@ -1271,18 +1285,32 @@ function roomApp() {
             this.autoStep();
         },
 
+        get autoplayOver() {
+            const f = this.fightState;
+            return this.phase !== 'fight' || !!f?.result || (!f?.pending && (f?.deck_count ?? 0) === 0);
+        },
+
         async autoStep() {
             this.autoTimer = null;
             if (!this.autoplay) return;
-            if (!this.canFlip) { this.stopAutoplay(); return; }
+            if (this.autoplayOver) { this.stopAutoplay(); return; }
+            if (this.fightState?.pending) { this.autoWaiting = true; return; }   // resumed by poll()
             await this.fightFlip(true);
-            if (!this.autoplay) return;
-            if (!this.canFlip) { this.stopAutoplay(); return; }
+            this.autoContinue();
+        },
+
+        // After a flip or a decision: wait, or schedule the next flip
+        autoContinue() {
+            if (!this.autoplay || this.autoTimer) return;
+            if (this.autoplayOver) { this.stopAutoplay(); return; }
+            if (this.fightState?.pending) { this.autoWaiting = true; return; }
+            this.autoWaiting = false;
             this.autoTimer = setTimeout(() => this.autoStep(), AUTOPLAY_MS);
         },
 
         stopAutoplay() {
-            this.autoplay = false;
+            this.autoplay    = false;
+            this.autoWaiting = false;
             clearTimeout(this.autoTimer);
             this.autoTimer = null;
         },

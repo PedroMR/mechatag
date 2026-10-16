@@ -17,28 +17,31 @@
                     "axe"
                 ],
                 "l_arm": [
-                    "light_mg"
+                    "light_shield"
                 ],
-                "legs": []
+                "legs": [
+                    "grenade"
+                ]
             }
         },
         {
             "slots": {
-                "head": null,
+                "head": "lock_head",
                 "torso": "gen_torso",
                 "r_arm": "power_arm",
-                "l_arm": null,
+                "l_arm": "power_arm",
                 "legs": "heavy_legs"
             },
             "equipment": {
                 "head": [],
                 "torso": [
-                    "small_laser"
+                    "javelin"
                 ],
                 "r_arm": [
                     "katana"
                 ],
                 "l_arm": [
+                    "hookshot",
                     "shotgun"
                 ],
                 "legs": [
