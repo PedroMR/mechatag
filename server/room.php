@@ -642,18 +642,17 @@ foreach ($pilots_raw['pilots'] as $p) {
                     <template x-for="tile in 6" :key="tile">
                         <div class="arena-tile" :class="{ 'arena-divider': tile === 4 }">
                             <div class="arena-tile-num" x-text="tile"></div>
-                            <div class="arena-tile-tokens">
-                                <template x-for="teamKey in ['1','2']" :key="teamKey">
-                                    <template x-for="(mech, mi) in (fightState?.mechs?.[teamKey] ?? [])" :key="mi">
-                                        <span class="arena-token"
-                                              :class="{ ['pilot-' + mech.pilot]: true, destroyed: mech.hp <= 0 }"
-                                              x-show="mech.hp > 0 && mech.pos === (tile - 1)"
-                                              :title="mech.pilot_name"></span>
-                                    </template>
-                                </template>
-                            </div>
                         </div>
                     </template>
+                    <!-- Tokens sit in a layer over the tiles so a move can slide them across -->
+                    <div class="arena-token-layer">
+                        <template x-for="t in boardTokens" :key="t.key">
+                            <span class="arena-token"
+                                  :class="{ ['pilot-' + t.pilot]: true, destroyed: t.destroyed }"
+                                  :style="{ left: ((t.pos + 0.5) * 100 / 6) + '%', '--dx': t.dx + 'px', '--dy': t.dy + 'px' }"
+                                  :title="t.name"></span>
+                        </template>
+                    </div>
                 </div>
 
                 <!-- Mechs -->
@@ -1035,6 +1034,26 @@ function roomApp() {
                 'card-teammate': teammate,
                 'card-locked':   locked || teammate,
             };
+        },
+
+        // Board tokens with their tile and offset inside it. Keyed per mech so
+        // the same element moves (and its position change animates).
+        get boardTokens() {
+            const mechs = [];
+            for (const tk of ['1', '2']) {
+                (this.fightState?.mechs?.[tk] ?? []).forEach((m, mi) =>
+                    mechs.push({ key: tk + '-' + mi, pilot: m.pilot, name: m.pilot_name, pos: m.pos, destroyed: m.hp <= 0 }));
+            }
+            const STEP = 26;
+            for (const t of mechs) {
+                if (t.destroyed) { t.dx = 0; t.dy = 0; continue; }
+                const here = mechs.filter(o => !o.destroyed && o.pos === t.pos);
+                const i    = here.indexOf(t), n = here.length;
+                const cols = n <= 2 ? n : 2, rows = Math.ceil(n / cols);
+                t.dx = ((i % cols) - (cols - 1) / 2) * STEP;
+                t.dy = (Math.floor(i / cols) - (rows - 1) / 2) * STEP;
+            }
+            return mechs;
         },
 
         get picksNeeded() {
