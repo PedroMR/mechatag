@@ -649,8 +649,8 @@ foreach ($pilots_raw['pilots'] as $p) {
                     <div class="arena-token-layer">
                         <template x-for="t in boardTokens" :key="t.key">
                             <span class="arena-token"
-                                  :class="{ ['pilot-' + t.pilot]: true, destroyed: t.destroyed }"
-                                  :style="{ left: ((t.pos + 0.5) * 100 / 6) + '%', '--dx': t.dx + 'px', '--dy': t.dy + 'px' }"
+                                  :class="{ ['pilot-' + t.pilot]: true, destroyed: t.destroyed, acting: t.pilot === fightState?.current?.pilot }"
+                                  :style="{ left: ((t.pos + 0.5) * 100 / 6) + '%', top: (t.y * 100) + '%', '--dx': t.dx + 'px' }"
                                   :title="t.name"></span>
                         </template>
                     </div>
@@ -1056,22 +1056,18 @@ function roomApp() {
             };
         },
 
-        // Board tokens with their tile and offset inside it. Keyed per mech so
-        // the same element moves (and its position change animates).
+        // Board tokens. Each mech keeps its own height on the board (and a small
+        // sideways nudge), so mechs sharing a tile never overlap. Keyed per mech
+        // so the same element moves and its position change animates.
         get boardTokens() {
+            const LANES = { '1-0': [0.45, -5], '2-0': [0.27, 6], '1-1': [0.81, 4], '2-1': [0.63, -6] };   // [height fraction, x px]
             const mechs = [];
             for (const tk of ['1', '2']) {
-                (this.fightState?.mechs?.[tk] ?? []).forEach((m, mi) =>
-                    mechs.push({ key: tk + '-' + mi, pilot: m.pilot, name: m.pilot_name, pos: m.pos, destroyed: m.hp <= 0 }));
-            }
-            const STEP = 26;
-            for (const t of mechs) {
-                if (t.destroyed) { t.dx = 0; t.dy = 0; continue; }
-                const here = mechs.filter(o => !o.destroyed && o.pos === t.pos);
-                const i    = here.indexOf(t), n = here.length;
-                const cols = n <= 2 ? n : 2, rows = Math.ceil(n / cols);
-                t.dx = ((i % cols) - (cols - 1) / 2) * STEP;
-                t.dy = (Math.floor(i / cols) - (rows - 1) / 2) * STEP;
+                (this.fightState?.mechs?.[tk] ?? []).forEach((m, mi) => {
+                    const [y, dx] = LANES[tk + '-' + mi] ?? [0.55, 0];
+                    mechs.push({ key: tk + '-' + mi, pilot: m.pilot, name: m.pilot_name, pos: m.pos,
+                                 destroyed: m.hp <= 0, y, dx });
+                });
             }
             return mechs;
         },
@@ -1083,7 +1079,7 @@ function roomApp() {
             if (!W || !H || !this.fightState) return [];
             const at = {};
             for (const t of this.boardTokens) {
-                at[t.pilot] = { x: (t.pos + 0.5) * W / 6 + t.dx, y: 0.55 * H + t.dy };
+                at[t.pilot] = { x: (t.pos + 0.5) * W / 6 + t.dx, y: t.y * H };
             }
             const hits = (this.fightState.attacks ?? []).map(a => ({ ...a }));
             const p = this.fightState.pending;

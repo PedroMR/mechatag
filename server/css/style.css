@@ -1136,7 +1136,7 @@ input[type=text]:disabled { opacity: 0.4; cursor: not-allowed; }
 .arena-board {
     display: flex;
     gap: 0;
-    min-height: 80px;
+    min-height: 140px;
     margin: 1rem 0;
     border: 1px solid var(--border);
     border-radius: 6px;
@@ -1146,7 +1146,7 @@ input[type=text]:disabled { opacity: 0.4; cursor: not-allowed; }
 
 .arena-tile {
     flex: 1;
-    min-height: 72px;
+    min-height: 132px;
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -1178,14 +1178,22 @@ input[type=text]:disabled { opacity: 0.4; cursor: not-allowed; }
 
 .arena-token {
     position: absolute;
-    top: 55%;
     width: 22px;
     height: 22px;
     border-radius: 50%;
     border: 2px solid rgba(255,255,255,0.4);
     pointer-events: auto;
-    transform: translate(calc(-50% + var(--dx, 0px)), calc(-50% + var(--dy, 0px)));
+    transform: translate(calc(-50% + var(--dx, 0px)), -50%);
     transition: left 0.6s ease-in-out, transform 0.6s ease-in-out, opacity 0.6s ease;
+}
+/* the mech whose card was flipped last */
+.arena-token.acting::after {
+    content: '';
+    position: absolute;
+    inset: -7px;
+    border: 2px solid rgba(255, 255, 255, 0.85);
+    border-radius: 5px;
+    box-shadow: 0 0 8px rgba(255, 255, 255, 0.35);
 }
 .arena-token.destroyed {
     opacity: 0;
