@@ -106,6 +106,7 @@ class Fight {
             $card = array_shift($state['fight']['deck']);
         }
         $state['fight']['current'] = $card;
+        $state['fight']['attacks'] = [];   // hits made by this card, for the board arrows
         if ($card === null) return self::endFight($state, 'deck');
 
         // Resolve
@@ -699,6 +700,13 @@ class Fight {
         $line = "{$hit['attacker']} attacks {$tgt['pilot_name']} with {$hit['weapon']}, dealing $actual damage";
         if ($blocked > 0) $line .= " ($blocked blocked by " . implode(', ', $def_names) . ")";
         $state['fight']['log'][] = $line . $punct;
+        $state['fight']['attacks'][] = [
+            'from'    => $state['fight']['current']['pilot'] ?? null,
+            'to'      => $tgt['pilot'],
+            'weapon'  => $hit['weapon'],
+            'damage'  => $actual,
+            'blocked' => $blocked,
+        ];
 
         if ($tgt['hp'] <= 0) {
             $state['fight']['log'][] = "⚡ {$tgt['pilot_name']}'s mech is destroyed!";
@@ -952,6 +960,7 @@ class Fight {
             'discard_count' => count($state['fight']['discard']),
             'discards'      => self::discardPiles($state),
             'current'       => $state['fight']['current'],
+            'attacks'       => $state['fight']['attacks'] ?? [],
             'mechs'         => $state['fight']['mechs'],
             'pending'       => $state['fight']['pending'] ?? null,
             'result'        => $state['fight']['result'] ?? null,

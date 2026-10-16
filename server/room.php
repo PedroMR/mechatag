@@ -638,7 +638,8 @@ foreach ($pilots_raw['pilots'] as $p) {
                 </div>
 
                 <!-- Arena board -->
-                <div class="arena-board">
+                <div class="arena-board"
+                     x-init="new ResizeObserver(e => { boardW = e[0].contentRect.width; boardH = e[0].contentRect.height }).observe($el)">
                     <template x-for="tile in 6" :key="tile">
                         <div class="arena-tile" :class="{ 'arena-divider': tile === 4 }">
                             <div class="arena-tile-num" x-text="tile"></div>
@@ -651,6 +652,22 @@ foreach ($pilots_raw['pilots'] as $p) {
                                   :class="{ ['pilot-' + t.pilot]: true, destroyed: t.destroyed }"
                                   :style="{ left: ((t.pos + 0.5) * 100 / 6) + '%', '--dx': t.dx + 'px', '--dy': t.dy + 'px' }"
                                   :title="t.name"></span>
+                        </template>
+                    </div>
+                    <!-- Attack arrows for the card being resolved -->
+                    <div class="arena-arrows">
+                        <template x-for="a in boardArrows" :key="a.key">
+                            <!-- one SVG per arrow (x-for can't loop inside an SVG); no viewBox, so units are board pixels -->
+                            <svg class="arena-arrow" :class="{ pending: a.pending, blocked: a.damage === 0 && !a.pending }">
+                                <defs>
+                                    <marker :id="'ah-' + a.key" viewBox="0 0 10 10" refX="8" refY="5"
+                                            markerWidth="6" markerHeight="6" orient="auto">
+                                        <path d="M0,0 L10,5 L0,10 z" :fill="a.color"></path>
+                                    </marker>
+                                </defs>
+                                <path class="arrow-line" :d="a.d" :stroke="a.color" :marker-end="'url(#ah-' + a.key + ')'" pathLength="1"></path>
+                                <text :x="a.lx" :y="a.ly" x-text="a.label"></text>
+                            </svg>
                         </template>
                     </div>
                 </div>
@@ -805,6 +822,9 @@ function roomApp() {
         staleClient: false,
         preview:     { id: null, x: 0, y: 0 },
         selectedCard: null,
+        ARROW_COLORS: { blue: '#4090ff', green: '#40c870', purple: '#a050e0', black: '#a0a0b0' },
+        boardW: 0,
+        boardH: 0,
         error:       '',
         copyLabel:   'Copy Link',
 
@@ -1054,6 +1074,48 @@ function roomApp() {
                 t.dy = (Math.floor(i / cols) - (rows - 1) / 2) * STEP;
             }
             return mechs;
+        },
+
+        // Arrows from attacker to target for each hit of the current card, plus
+        // a dashed one for an attack waiting on the defender's shield choice.
+        get boardArrows() {
+            const W = this.boardW, H = this.boardH;
+            if (!W || !H || !this.fightState) return [];
+            const at = {};
+            for (const t of this.boardTokens) {
+                at[t.pilot] = { x: (t.pos + 0.5) * W / 6 + t.dx, y: 0.55 * H + t.dy };
+            }
+            const hits = (this.fightState.attacks ?? []).map(a => ({ ...a }));
+            const p = this.fightState.pending;
+            if (p?.kind === 'defend') {
+                const tgt = this.fightState.mechs?.[p.team]?.[p.mech];
+                if (tgt) hits.push({ from: this.fightState.current?.pilot, to: tgt.pilot, pending: true,
+                                     damage: p.hit?.dmg, weapon: p.hit?.weapon });
+            }
+            const R = 14;   // stop short of the token's edge
+            return hits.map((h, i) => {
+                const a = at[h.from], b = at[h.to];
+                if (!a || !b) return null;
+                // Arc upwards; repeated hits on the same target arc a little higher
+                const lift = 22 + 10 * hits.slice(0, i).filter(o => o.from === h.from && o.to === h.to).length;
+                const dist = Math.hypot(b.x - a.x, b.y - a.y);
+                const cx = (a.x + b.x) / 2, cy = Math.min(a.y, b.y) - lift - (dist < 2 * R ? 20 : 0);
+                const start = this.towards(a, { x: cx, y: cy }, R), end = this.towards(b, { x: cx, y: cy }, R);
+                return {
+                    key: (this.fightState.discard_count ?? 0) + '-' + i + (h.pending ? 'p' : ''),
+                    d: `M${start.x},${start.y} Q${cx},${cy} ${end.x},${end.y}`,
+                    lx: cx, ly: (start.y + 2 * cy + end.y) / 4 - 4,
+                    color: this.ARROW_COLORS[h.from] ?? '#f0a030',
+                    pending: !!h.pending,
+                    damage: h.damage,
+                    label: h.pending ? h.damage + '?' : (h.damage > 0 ? '−' + h.damage : 'blocked'),
+                };
+            }).filter(Boolean);
+        },
+
+        towards(p, q, r) {
+            const d = Math.hypot(q.x - p.x, q.y - p.y) || 1;
+            return { x: p.x + (q.x - p.x) * r / d, y: p.y + (q.y - p.y) * r / d };
         },
 
         get picksNeeded() {

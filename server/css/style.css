@@ -1193,6 +1193,44 @@ input[type=text]:disabled { opacity: 0.4; cursor: not-allowed; }
     pointer-events: none;
 }
 
+.arena-arrows {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+}
+.arena-arrow {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    overflow: visible;
+    opacity: 0;
+    /* wait for the tokens to finish sliding, then draw */
+    animation: arrow-show 0.1s linear 0.6s forwards;
+}
+.arena-arrow .arrow-line {
+    fill: none;
+    stroke-width: 2.5;
+    stroke-linecap: round;
+    stroke-dasharray: 1;
+    stroke-dashoffset: 1;
+    animation: arrow-draw 0.45s ease-out 0.6s forwards;
+}
+.arena-arrow text {
+    font-size: 11px;
+    font-weight: 800;
+    fill: #fff;
+    text-anchor: middle;
+    paint-order: stroke;
+    stroke: #111;
+    stroke-width: 3px;
+}
+.arena-arrow.blocked .arrow-line { stroke-dasharray: 0.04 0.03; stroke-dashoffset: 0; animation: none; }
+.arena-arrow.pending .arrow-line { stroke-dasharray: 0.05 0.04; stroke-dashoffset: 0; animation: arrow-march 1s linear infinite; }
+@keyframes arrow-show  { to { opacity: 1; } }
+@keyframes arrow-draw  { to { stroke-dashoffset: 0; } }
+@keyframes arrow-march { to { stroke-dashoffset: -0.09; } }
+
 /* Fight log */
 
 .fight-log-label {
