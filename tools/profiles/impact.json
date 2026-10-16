@@ -16,7 +16,7 @@
                 "r_arm": [
                     "axe"
                 ],
-                "l_arm": [],
+                "l_arm": ["axe"],
                 "legs": [
                     "kunai"
                 ]
@@ -38,7 +38,7 @@
                 "r_arm": [
                     "axe"
                 ],
-                "l_arm": [],
+                "l_arm": ["axe"],
                 "legs": [
                     "kunai"
                 ]

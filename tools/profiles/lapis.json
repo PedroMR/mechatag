@@ -1,0 +1,56 @@
+{
+    "mechs": [
+        {
+            "slots": {
+                "head": "gen_head",
+                "torso": "armored_torso",
+                "r_arm": "power_arm",
+                "l_arm": "razor_arm",
+                "legs": "gliding_legs"
+            },
+            "equipment": {
+                "head": [
+                    "hidden_blade"
+                ],
+                "torso": [
+                    "kunai"
+                ],
+                "r_arm": [
+			"katana"
+                ],
+                "l_arm": [
+                    "electric_whip"
+                ],
+                "legs": [
+                    "kunai"
+                ]
+            }
+        },
+        {
+            "slots": {
+                "head": "gen_head",
+                "torso": "armored_torso",
+                "r_arm": "power_arm",
+                "l_arm": "razor_arm",
+                "legs": "gliding_legs"
+            },
+            "equipment": {
+                "head": [
+                    "hidden_blade"
+                ],
+                "torso": [
+                    "kunai"
+                ],
+                "r_arm": [
+			"katana"
+                ],
+                "l_arm": [
+                    "electric_whip"
+                ],
+                "legs": [
+                    "kunai"
+                ]
+            }
+        }
+    ]
+}
