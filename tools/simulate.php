@@ -48,6 +48,14 @@ const C_DIM   = '2';           // side notes
 const C_LEAD  = '1;38;5;84';   // the better win percentage: bold green
 const C_TRAIL = '1;38;5;203';  // the worse win percentage: bold red
 const C_EVEN  = '1;38;5;221';  // draws, and win percentages when tied: bold yellow
+const C_TITLE = '1;38;5;213';  // wizard: mech headings
+const C_NAME  = '1';           // wizard: card names
+const C_PROMPT= '38;5;117';    // wizard: input prompt
+const C_WARN  = '38;5;214';    // wizard: invalid input
+const C_OK    = '1;38;5;84';   // wizard: saved
+const C_T1    = '38;5;103';    // tier tags, as in the game UI
+const C_T2    = '1;38;5;43';
+const C_T3    = '1;38;5;205';
 
 function color(string $code, string $s): string {
     return USE_COLOR ? "\e[{$code}m$s\e[0m" : $s;
@@ -142,7 +150,8 @@ function describe_mech(array $mech): string {
         $part = $mech['slots'][$slot] ?? null;
         $name = $part ? modules()[$part]['name'] : ($slot === 'head' ? '—' : 'Default');
         $eq   = array_map(fn($id) => modules()[$id]['name'], $mech['equipment'][$slot] ?? []);
-        $lines[] = sprintf("    %-6s %s%s", SLOT_LABELS[$slot], $name, $eq ? '  + ' . implode(', ', $eq) : '');
+        $lines[] = '    ' . color(C_DIM, str_pad(SLOT_LABELS[$slot], 6)) . ' ' . color(C_NAME, $name)
+            . ($eq ? '  + ' . implode(', ', $eq) : '');
     }
     return implode("\n", $lines);
 }
@@ -157,60 +166,125 @@ function cmd_profiles(): void {
             $ids = array_merge(array_filter(array_values($m['slots'])), ...array_values($m['equipment']));
             $mods[] = implode(', ', array_map(fn($id) => modules()[$id]['name'] ?? $id, $ids)) ?: '(all default)';
         }
-        echo basename($f, '.json'), "\n    mech 1: ", $mods[0] ?? '?', "\n    mech 2: ", $mods[1] ?? '?', "\n";
+        out(color(C_HEAD, basename($f, '.json')) . "\n"
+            . color(C_DIM, '    mech 1: ') . ($mods[0] ?? '?') . "\n"
+            . color(C_DIM, '    mech 2: ') . ($mods[1] ?? '?') . "\n");
     }
 }
 
 function cmd_show(string $name): void {
     $p = load_profile($name);
-    foreach ($p['mechs'] as $i => $m) echo "Mech ", $i + 1, "\n", describe_mech($m), "\n";
+    foreach ($p['mechs'] as $i => $m) out(color(C_TITLE, 'Mech ' . ($i + 1)) . "\n" . describe_mech($m) . "\n");
 }
 
 // ── Wizard ───────────────────────────────────────────────────────────────────
+//
+// Every answer is recorded. Typing b drops the last answer and rebuilds the
+// profile by silently replaying the remaining ones, then asks that question again.
 
-function ask(string $prompt): string {
+final class GoBack extends Exception {}
+
+final class Wiz {
+    public static array $answers = [];
+    public static int   $pos     = 0;
+    public static function replaying(): bool { return self::$pos < count(self::$answers); }
+}
+
+/** Prints only when the wizard is asking live (not replaying recorded answers). */
+function say(string $s): void {
+    if (!Wiz::replaying()) out($s);
+}
+
+function read_line(string $prompt): string {
     echo $prompt;
     $line = fgets(STDIN);
     if ($line === false) fail('input ended');
     return trim($line);
 }
 
-/** Numbered menu; returns the chosen key, or null for the blank/default answer. */
-function menu(array $options, string $blank_label): ?string {
-    $keys = array_keys($options);
-    echo "      0) $blank_label\n";
-    foreach ($keys as $i => $k) echo sprintf("     %2d) %s\n", $i + 1, $options[$k]);
+/**
+ * Asks one recorded question. $parse turns the typed text into an answer, or
+ * returns false to ask again. Typing b goes back to the previous question.
+ */
+function ask(string $prompt, callable $parse, string $retry): mixed {
+    if (Wiz::replaying()) return Wiz::$answers[Wiz::$pos++];
     while (true) {
-        $a = ask('    > ');
-        if ($a === '' || $a === '0') return null;
-        if (ctype_digit($a) && isset($keys[(int)$a - 1])) return $keys[(int)$a - 1];
-        echo "    Enter a number from the list.\n";
+        $a = read_line($prompt);
+        if (strtolower($a) === 'b') {
+            if (!Wiz::$answers) { out(color(C_WARN, '    Nothing to go back to.') . "\n"); continue; }
+            array_pop(Wiz::$answers);
+            out(color(C_DIM, '    ← back') . "\n");
+            throw new GoBack();
+        }
+        $v = $parse($a);
+        if ($v !== false) {
+            Wiz::$answers[] = $v;
+            Wiz::$pos++;
+            return $v;
+        }
+        out(color(C_WARN, "    $retry") . "\n");
     }
 }
 
+function ask_yes_no(string $question): bool {
+    say("\n" . color(C_HEAD, $question) . ' ' . color(C_DIM, '[y/N, b = back]') . "\n");
+    return ask(color(C_PROMPT, '    > '), fn($a) => match (strtolower($a)) {
+        'y', 'yes'     => 'y',
+        '', 'n', 'no'  => 'n',
+        default        => false,
+    }, 'Answer y or n, or b to go back.') === 'y';
+}
+
+/** Numbered menu; returns the chosen key, or null for the blank/default answer. */
+function menu(array $options, string $blank_label): ?string {
+    $keys = array_keys($options);
+    say(color(C_DIM, "      0) $blank_label") . "\n");
+    foreach ($keys as $i => $k) say(sprintf("     %2d) %s\n", $i + 1, $options[$k]));
+    return ask(color(C_PROMPT, '    > '), function ($a) use ($keys) {
+        if ($a === '' || $a === '0') return null;
+        if (ctype_digit($a) && isset($keys[(int)$a - 1])) return $keys[(int)$a - 1];
+        return false;
+    }, 'Enter a number from the list, or b to go back.');
+}
+
 function card_label(array $c): string {
-    $bits = ["T{$c['tier']}", $c['effects'] !== '' ? str_replace("\n", ' / ', $c['effects']) : '(no effect)'];
+    $tier = color([1 => C_T1, 2 => C_T2, 3 => C_T3][$c['tier']] ?? C_HEAD, "T{$c['tier']}");
+    $bits = [$tier, $c['effects'] !== '' ? str_replace("\n", ' / ', $c['effects']) : '(no effect)'];
     if ($c['type'] === 'part')  $bits[] = ($c['hardpoints_offered'] ?? 0) . ' hardp';
     else                        $bits[] = 'needs ' . ($c['hardpoints_required'] ?? 0) . ' hardp';
     if (!empty($c['range']))      $bits[] = 'range ' . $c['range'];
     if (!empty($c['energy_max'])) $bits[] = "energy {$c['energy_min']}/{$c['energy_max']}";
     if (!empty($c['aoe']))        $bits[] = 'AoE ' . $c['aoe'];
-    return str_pad($c['name'], 20) . ' ' . implode(' · ', $bits);
+    return color(C_NAME, str_pad($c['name'], 20)) . ' ' . implode(color(C_DIM, ' · '), $bits);
 }
 
 function cmd_new(string $name): void {
     $path = profile_path($name);
-    if (file_exists($path) && strtolower(ask("Profile '$name' exists. Overwrite? [y/N] ")) !== 'y') return;
+    if (file_exists($path) && strtolower(read_line("Profile '$name' exists. Overwrite? [y/N] ")) !== 'y') return;
 
+    out(color(C_DIM, 'Pick by number; Enter takes option 0; b goes back one answer.') . "\n");
+    while (true) {
+        Wiz::$pos = 0;
+        try { $profile = build_profile(); break; }
+        catch (GoBack) {}
+    }
+    if ($errors = validate($profile)) fail("loadout is not legal:\n  " . implode("\n  ", $errors));
+    if (!is_dir(PROFILES_DIR)) mkdir(PROFILES_DIR, 0755, true);
+    file_put_contents($path, json_encode($profile, JSON_PRETTY_PRINT) . "\n");
+    out("\n" . color(C_OK, "Saved $path") . "\n");
+    foreach ($profile['mechs'] as $i => $m) out(color(C_TITLE, 'Mech ' . ($i + 1)) . "\n" . describe_mech($m) . "\n");
+}
+
+function build_profile(): array {
     $empty   = ['slots' => array_fill_keys(SLOTS, null), 'equipment' => array_fill_keys(SLOTS, [])];
     $profile = ['mechs' => [$empty, $empty]];
 
     foreach ([0, 1] as $mi) {
-        if ($mi === 1 && strtolower(ask("\nMake mech 2 a copy of mech 1? [y/N] ")) === 'y') {
+        if ($mi === 1 && ask_yes_no('Make mech 2 a copy of mech 1?')) {
             $profile['mechs'][1] = $profile['mechs'][0];
             break;
         }
-        echo "\n=== Mech ", $mi + 1, " ===\n";
+        say("\n" . color(C_TITLE, '=== Mech ' . ($mi + 1) . ' ===') . "\n");
         foreach (SLOTS as $slot) {
             $mech = &$profile['mechs'][$mi];
 
@@ -219,7 +293,7 @@ function cmd_new(string $name): void {
             foreach (modules() as $id => $c) {
                 if ($c['type'] === 'part' && slot_accepts($slot, $c)) $parts[$id] = card_label($c);
             }
-            echo "\n  ", SLOT_LABELS[$slot], " part:\n";
+            say("\n  " . color(C_HEAD, SLOT_LABELS[$slot] . ' part:') . "\n");
             $default = $slot === 'head' ? 'none' : 'default (1 hardp)';
             $mech['slots'][$slot] = $parts ? menu($parts, $default) : null;
 
@@ -233,8 +307,8 @@ function cmd_new(string $name): void {
                 }
                 if (!$eqs) break;
                 $have = array_map(fn($id) => modules()[$id]['name'], $mech['equipment'][$slot]);
-                echo "\n  ", SLOT_LABELS[$slot], " equipment ($free hardp free",
-                     $have ? '; has ' . implode(', ', $have) : '', "):\n";
+                say("\n  " . color(C_HEAD, SLOT_LABELS[$slot] . ' equipment')
+                    . " ($free hardp free" . ($have ? '; has ' . implode(', ', $have) : '') . "):\n");
                 $pick = menu($eqs, 'done');
                 if ($pick === null) break;
                 $mech['equipment'][$slot][] = $pick;
@@ -242,12 +316,7 @@ function cmd_new(string $name): void {
             unset($mech);
         }
     }
-
-    if ($errors = validate($profile)) fail("loadout is not legal:\n  " . implode("\n  ", $errors));
-    if (!is_dir(PROFILES_DIR)) mkdir(PROFILES_DIR, 0755, true);
-    file_put_contents($path, json_encode($profile, JSON_PRETTY_PRINT) . "\n");
-    echo "\nSaved $path\n";
-    foreach ($profile['mechs'] as $i => $m) echo "Mech ", $i + 1, "\n", describe_mech($m), "\n";
+    return $profile;
 }
 
 // ── Fighting ─────────────────────────────────────────────────────────────────
