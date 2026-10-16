@@ -7,6 +7,9 @@
  *   php tools/simulate.php new <name>          Create a team profile (interactive wizard)
  *   php tools/simulate.php profiles            List saved profiles
  *   php tools/simulate.php show <name>         Print a profile's mechs
+ *   php tools/simulate.php import <ROOM> [run options]
+ *                                              Save a room's teams as <ROOM>_1 and <ROOM>_2
+ *                                              (overwriting them), then run them against each other
  *   php tools/simulate.php run <A> <B> [--fights=100 | -f 100] [--seed=N] [--log=K] [--no-color]
  *                                              Fight profile A (team 1) against B (team 2)
  *
@@ -175,6 +178,52 @@ function cmd_profiles(): void {
 function cmd_show(string $name): void {
     $p = load_profile($name);
     foreach ($p['mechs'] as $i => $m) out(color(C_TITLE, 'Mech ' . ($i + 1)) . "\n" . describe_mech($m) . "\n");
+}
+
+// ── Import from a room ───────────────────────────────────────────────────────
+
+const ROOMS_DIR = __DIR__ . '/../server/data/rooms';
+
+/**
+ * Saves a room's two teams as profiles <ROOM>_1 and <ROOM>_2. Uses the mechs
+ * being configured during the config phase, otherwise those of the current or
+ * last fight. Returns the two profile names.
+ */
+function cmd_import(string $room): array {
+    $room = strtoupper($room);
+    $path = ROOMS_DIR . "/$room/state.json";
+    if (!preg_match('/^[A-F0-9]{6}$/', $room) || !file_exists($path)) fail("no room '$room'");
+    $state = json_decode(file_get_contents($path), true);
+    if (!$state) fail("$path is not valid JSON");
+
+    $mechs = $state['phase'] === 'config' ? ($state['config']['mechs'] ?? null) : ($state['last_mechs'] ?? null);
+    if (!$mechs) fail("room $room has no configured mechs yet (phase: {$state['phase']})");
+
+    $strip = fn($id) => $id === null ? null : explode(':', $id)[0];   // "rifle:1" → "rifle"
+    $names = [];
+    foreach (['1', '2'] as $tk) {
+        $profile = ['mechs' => []];
+        foreach ($mechs[$tk] ?? [] as $m) {
+            $mech = ['slots' => [], 'equipment' => []];
+            foreach (SLOTS as $slot) {
+                $mech['slots'][$slot]     = $strip($m['slots'][$slot] ?? null);
+                $mech['equipment'][$slot] = array_map($strip, $m['equipment'][$slot] ?? []);
+            }
+            $profile['mechs'][] = $mech;
+        }
+        $name = "{$room}_$tk";
+        if (!is_dir(PROFILES_DIR)) mkdir(PROFILES_DIR, 0755, true);
+        file_put_contents(profile_path($name), json_encode($profile, JSON_PRETTY_PRINT) . "\n");
+        $names[] = $name;
+
+        out(color(C_OK, "Saved $name") . color(C_DIM, " (room $room team $tk, phase {$state['phase']})") . "\n");
+        foreach ($profile['mechs'] as $i => $m) out(color(C_TITLE, 'Mech ' . ($i + 1)) . "\n" . describe_mech($m) . "\n");
+        if ($errors = validate($profile)) {
+            out(color(C_WARN, "  Not a legal loadout, so it can't be run yet:\n    " . implode("\n    ", $errors)) . "\n");
+        }
+    }
+    echo "\n";
+    return $names;
 }
 
 // ── Wizard ───────────────────────────────────────────────────────────────────
@@ -506,6 +555,7 @@ define('USE_COLOR', empty($opts['no-color']) && getenv('NO_COLOR') === false && 
 
 match ($pos[0] ?? '') {
     'new'      => isset($pos[1]) ? cmd_new($pos[1]) : fail('usage: simulate.php new <name>'),
+    'import'   => isset($pos[1]) ? cmd_run(...[...cmd_import($pos[1]), $opts]) : fail('usage: simulate.php import <ROOM> [--fights=N] [--seed=N] [--log=K]'),
     'profiles' => cmd_profiles(),
     'show'     => isset($pos[1]) ? cmd_show($pos[1]) : fail('usage: simulate.php show <name>'),
     'run'      => isset($pos[2]) ? cmd_run($pos[1], $pos[2], $opts) : fail('usage: simulate.php run <A> <B> [--fights=N | -f N] [--seed=N] [--log=K]'),
