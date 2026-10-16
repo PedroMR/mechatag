@@ -937,6 +937,9 @@ input[type=text]:disabled { opacity: 0.4; cursor: not-allowed; }
 .fight-card-current .fight-card-name   { font-size: 1.45rem; }
 .fight-card-current .fight-card-effect { font-size: 1rem; color: var(--text); }
 .fight-card-current.fight-card-none { box-shadow: none; opacity: 0.5; }
+.fight-card-current.flippable { cursor: pointer; transition: transform 0.1s, filter 0.1s; }
+.fight-card-current.flippable:hover { transform: translateY(-2px); filter: brightness(1.12); }
+.fight-card-current.flippable:active { transform: translateY(0); }
 
 /* Discard piles: small and dimmed, one per pilot */
 .fight-discards { min-width: 0; }

@@ -471,7 +471,7 @@ foreach ($pilots_raw['pilots'] as $p) {
                             <div class="fight-deck-count" x-text="fightState?.deck_count ?? 0"></div>
                         </div>
                         <button class="btn-start fight-flip-btn"
-                                :disabled="(fightState?.deck_count ?? 0) === 0 || !!fightState?.pending || !!fightState?.result"
+                                :disabled="!canFlip"
                                 @click="fightFlip">
                             Flip Card
                         </button>
@@ -481,7 +481,9 @@ foreach ($pilots_raw['pilots'] as $p) {
                     <div class="fight-current">
                         <div class="fight-current-label">Now resolving</div>
                         <div class="fight-card fight-card-current" x-show="fightState?.current"
-                             :class="'pilot-bg-' + (fightState?.current?.pilot ?? '')">
+                             :class="{ ['pilot-bg-' + (fightState?.current?.pilot ?? '')]: true, flippable: canFlip }"
+                             :title="canFlip ? 'Click to flip the next card' : ''"
+                             @click="canFlip && fightFlip()">
                             <div class="fight-card-pilot"
                                  x-text="pilotName(fightState?.current?.pilot)"></div>
                             <div class="fight-card-name"
@@ -489,7 +491,10 @@ foreach ($pilots_raw['pilots'] as $p) {
                             <div class="fight-card-effect"
                                  x-text="fightState?.current?.effect"></div>
                         </div>
-                        <div class="fight-card fight-card-current fight-card-none" x-show="!fightState?.current">
+                        <div class="fight-card fight-card-current fight-card-none" x-show="!fightState?.current"
+                             :class="{ flippable: canFlip }"
+                             :title="canFlip ? 'Click to flip the first card' : ''"
+                             @click="canFlip && fightFlip()">
                             <div class="fight-card-name">No card yet</div>
                             <div class="fight-card-effect">Flip to start</div>
                         </div>
@@ -1114,6 +1119,11 @@ function roomApp() {
         towards(p, q, r) {
             const d = Math.hypot(q.x - p.x, q.y - p.y) || 1;
             return { x: p.x + (q.x - p.x) * r / d, y: p.y + (q.y - p.y) * r / d };
+        },
+
+        get canFlip() {
+            const f = this.fightState;
+            return (f?.deck_count ?? 0) > 0 && !f?.pending && !f?.result;
         },
 
         get picksNeeded() {
