@@ -200,7 +200,7 @@ foreach ($pilots_raw['pilots'] as $p) {
                 <div class="card-grid">
                     <template x-for="(cardId, idx) in (draftState?.hand ?? [])" :key="idx">
                         <div class="module-card"
-                             :class="[cardClass(idx), 'tier-card-' + (cardInfo(cardId)?.tier ?? '')]"
+                             :class="{ ...cardClass(idx), ['tier-card-' + (cardInfo(cardId)?.tier ?? '')]: true }"
                              @click="draftPick(idx)">
                             <div class="card-top">
                                 <div class="card-name" x-text="cardInfo(cardId)?.name ?? cardId"></div>
@@ -501,7 +501,7 @@ foreach ($pilots_raw['pilots'] as $p) {
                         <div class="fight-discard-piles">
                             <template x-for="pile in (fightState?.discards ?? [])" :key="pile.pilot">
                                 <div class="fight-card fight-card-discard"
-                                     :class="['pilot-bg-' + pile.pilot, { empty: !pile.top }]">
+                                     :class="{ ['pilot-bg-' + pile.pilot]: true, empty: !pile.top }">
                                     <div class="fight-card-pilot">
                                         <span x-text="pilotName(pile.pilot)"></span>
                                         <span class="fight-discard-count" x-text="'· ' + pile.count"></span>
@@ -646,7 +646,7 @@ foreach ($pilots_raw['pilots'] as $p) {
                                 <template x-for="teamKey in ['1','2']" :key="teamKey">
                                     <template x-for="(mech, mi) in (fightState?.mechs?.[teamKey] ?? [])" :key="mi">
                                         <span class="arena-token"
-                                              :class="['pilot-' + mech.pilot, { destroyed: mech.hp <= 0 }]"
+                                              :class="{ ['pilot-' + mech.pilot]: true, destroyed: mech.hp <= 0 }"
                                               x-show="mech.hp > 0 && mech.pos === (tile - 1)"
                                               :title="mech.pilot_name"></span>
                                     </template>
