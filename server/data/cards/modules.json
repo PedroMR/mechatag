@@ -1,27 +1,14 @@
 [
     {
-        "id": "ballistic_head",
-        "name": "Ballistic Calc",
+        "id": "tough_torso",
+        "name": "Barrel Torso",
         "tier": 1,
         "copies": 2,
         "type": "part",
         "parts": [
-            "head"
+            "torso"
         ],
-        "effects": "All PRJ+1, All EXP+1",
-        "hardpoints_offered": 0,
-        "hardpoints_required": 0
-    },
-    {
-        "id": "gliding_legs",
-        "name": "Roller Legs",
-        "tier": 1,
-        "copies": 2,
-        "type": "part",
-        "parts": [
-            "legs"
-        ],
-        "effects": "MOVE 1",
+        "effects": "HP+2",
         "hardpoints_offered": 1,
         "hardpoints_required": 0
     },
@@ -52,6 +39,19 @@
         "hardpoints_required": 0
     },
     {
+        "id": "gliding_legs",
+        "name": "Roller Legs",
+        "tier": 1,
+        "copies": 2,
+        "type": "part",
+        "parts": [
+            "legs"
+        ],
+        "effects": "MOVE 1",
+        "hardpoints_offered": 1,
+        "hardpoints_required": 0
+    },
+    {
         "id": "lock_head",
         "name": "Sensor Head",
         "tier": 1,
@@ -64,19 +64,6 @@
         "hardpoints_offered": 0,
         "hardpoints_required": 0,
         "range": "12345"
-    },
-    {
-        "id": "tough_torso",
-        "name": "Barrel Torso",
-        "tier": 1,
-        "copies": 2,
-        "type": "part",
-        "parts": [
-            "torso"
-        ],
-        "effects": "HP+2",
-        "hardpoints_offered": 1,
-        "hardpoints_required": 0
     },
     {
         "id": "grenade",
@@ -94,41 +81,6 @@
         "hardpoints_required": 1,
         "range": "234",
         "aoe": "tile"
-    },
-    {
-        "id": "missile",
-        "name": "Small Missile",
-        "tier": 1,
-        "copies": 2,
-        "type": "equipment",
-        "parts": [
-            "arm",
-            "torso"
-        ],
-        "effects": "LOCK-1: ATK 1 EXP",
-        "hardpoints_offered": 0,
-        "hardpoints_required": 1,
-        "energy_min": 1,
-        "energy_max": 3,
-        "range": "345",
-        "aoe": "neighbor"
-    },
-    {
-        "id": "small_laser",
-        "name": "Small Laser",
-        "tier": 1,
-        "copies": 2,
-        "type": "equipment",
-        "parts": [
-            "arm",
-            "torso"
-        ],
-        "effects": "ATK 2 LSR",
-        "hardpoints_offered": 0,
-        "hardpoints_required": 1,
-        "energy_min": 1,
-        "energy_max": 2,
-        "range": "234"
     },
     {
         "id": "hidden_blade",
@@ -178,35 +130,6 @@
         "range": "123"
     },
     {
-        "id": "shotgun",
-        "name": "Shotgun",
-        "tier": 1,
-        "copies": 2,
-        "type": "equipment",
-        "parts": [
-            "arm"
-        ],
-        "effects": "ATK 2 PRJ",
-        "hardpoints_offered": 0,
-        "hardpoints_required": 1,
-        "range": "12",
-        "aoe": "tile"
-    },
-    {
-        "id": "rifle",
-        "name": "Rifle",
-        "tier": 1,
-        "copies": 2,
-        "type": "equipment",
-        "parts": [
-            "arm"
-        ],
-        "effects": "ATK 2 PRJ",
-        "hardpoints_offered": 0,
-        "hardpoints_required": 1,
-        "range": "345"
-    },
-    {
         "id": "light_shield",
         "name": "Light Shield",
         "tier": 1,
@@ -236,18 +159,33 @@
         "range": "1"
     },
     {
-        "id": "thrusters",
-        "name": "Thrusters",
+        "id": "rifle",
+        "name": "Rifle",
         "tier": 1,
-        "copies": 1,
+        "copies": 2,
         "type": "equipment",
         "parts": [
-            "legs",
-            "torso"
+            "arm"
         ],
-        "effects": "MOVE 2",
+        "effects": "ATK 2 PRJ",
         "hardpoints_offered": 0,
-        "hardpoints_required": 1
+        "hardpoints_required": 1,
+        "range": "345"
+    },
+    {
+        "id": "shotgun",
+        "name": "Shotgun",
+        "tier": 1,
+        "copies": 2,
+        "type": "equipment",
+        "parts": [
+            "arm"
+        ],
+        "effects": "ATK 2 PRJ",
+        "hardpoints_offered": 0,
+        "hardpoints_required": 1,
+        "range": "12",
+        "aoe": "tile"
     },
     {
         "id": "small_generator",
@@ -259,6 +197,55 @@
             "any"
         ],
         "effects": "+1 ENRG anywhere",
+        "hardpoints_offered": 0,
+        "hardpoints_required": 1
+    },
+    {
+        "id": "small_laser",
+        "name": "Small Laser",
+        "tier": 1,
+        "copies": 2,
+        "type": "equipment",
+        "parts": [
+            "arm",
+            "torso"
+        ],
+        "effects": "ATK 2 LSR",
+        "hardpoints_offered": 0,
+        "hardpoints_required": 1,
+        "energy_min": 1,
+        "energy_max": 2,
+        "range": "234"
+    },
+    {
+        "id": "missile",
+        "name": "Small Missile",
+        "tier": 1,
+        "copies": 2,
+        "type": "equipment",
+        "parts": [
+            "arm",
+            "torso"
+        ],
+        "effects": "LOCK-1: ATK 1 EXP",
+        "hardpoints_offered": 0,
+        "hardpoints_required": 1,
+        "energy_min": 1,
+        "energy_max": 3,
+        "range": "345",
+        "aoe": "neighbor"
+    },
+    {
+        "id": "thrusters",
+        "name": "Thrusters",
+        "tier": 1,
+        "copies": 1,
+        "type": "equipment",
+        "parts": [
+            "legs",
+            "torso"
+        ],
+        "effects": "MOVE 2",
         "hardpoints_offered": 0,
         "hardpoints_required": 1
     },
@@ -276,16 +263,16 @@
         "hardpoints_required": 0
     },
     {
-        "id": "gen_head",
-        "name": "Solar Roof",
+        "id": "ballistic_head",
+        "name": "Ballistic Calc",
         "tier": 2,
         "copies": 2,
         "type": "part",
         "parts": [
             "head"
         ],
-        "effects": "+1 ENRG anywhere",
-        "hardpoints_offered": 1,
+        "effects": "All PRJ+1, All EXP+1",
+        "hardpoints_offered": 0,
         "hardpoints_required": 0
     },
     {
@@ -305,7 +292,7 @@
         "id": "power_arm",
         "name": "Power Arm",
         "tier": 2,
-        "copies": 3,
+        "copies": 4,
         "type": "part",
         "parts": [
             "arm"
@@ -343,6 +330,19 @@
         "hardpoints_required": 0
     },
     {
+        "id": "gen_head",
+        "name": "Solar Roof",
+        "tier": 2,
+        "copies": 2,
+        "type": "part",
+        "parts": [
+            "head"
+        ],
+        "effects": "+1 ENRG anywhere",
+        "hardpoints_offered": 1,
+        "hardpoints_required": 0
+    },
+    {
         "id": "wide_torso",
         "name": "Wide Torso",
         "tier": 2,
@@ -354,6 +354,23 @@
         "effects": "PRJ+1",
         "hardpoints_offered": 2,
         "hardpoints_required": 0
+    },
+    {
+        "id": "chaingun",
+        "name": "Chaingun",
+        "tier": 2,
+        "copies": 2,
+        "type": "equipment",
+        "parts": [
+            "arm",
+            "torso"
+        ],
+        "effects": "ATK 4 PRJ",
+        "hardpoints_offered": 0,
+        "hardpoints_required": 2,
+        "energy_min": 1,
+        "energy_max": 2,
+        "range": "234"
     },
     {
         "id": "electric_whip",
@@ -386,6 +403,20 @@
         "energy_min": 2,
         "energy_max": 4,
         "range": "234"
+    },
+    {
+        "id": "katana",
+        "name": "Katana",
+        "tier": 2,
+        "copies": 2,
+        "type": "equipment",
+        "parts": [
+            "arm"
+        ],
+        "effects": "ATK 4 IMP",
+        "hardpoints_offered": 0,
+        "hardpoints_required": 2,
+        "range": "1"
     },
     {
         "id": "javelin",
@@ -452,23 +483,6 @@
         "energy_min": 1,
         "energy_max": 3,
         "range": "345"
-    },
-    {
-        "id": "chaingun",
-        "name": "Chaingun",
-        "tier": 2,
-        "copies": 2,
-        "type": "equipment",
-        "parts": [
-            "arm",
-            "torso"
-        ],
-        "effects": "ATK 4 PRJ",
-        "hardpoints_offered": 0,
-        "hardpoints_required": 2,
-        "energy_min": 1,
-        "energy_max": 2,
-        "range": "234"
     },
     {
         "id": "heavy_shotgun",

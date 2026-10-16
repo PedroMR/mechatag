@@ -76,7 +76,7 @@
             "id": "recharge",
             "name": "Core Charge",
             "copies": 2,
-            "effect": "HEAD, CORE"
+            "effect": "CORE, HEAD"
         }
     ]
 }
