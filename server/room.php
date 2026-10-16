@@ -469,8 +469,16 @@ foreach ($pilots_raw['pilots'] as $p) {
                         </div>
                         <button class="btn-start fight-flip-btn"
                                 :disabled="!canFlip"
-                                @click="fightFlip">
+                                @click="fightFlip()">
                             Flip Card
+                        </button>
+                        <button class="fight-autoplay-btn" :class="{ active: autoplay }"
+                                :disabled="!autoplay && !canFlip"
+                                :title="autoplay ? 'Pause autoplay' : 'Autoplay: flip a card every 3 seconds until a decision is needed'"
+                                :aria-label="autoplay ? 'Pause autoplay' : 'Start autoplay'"
+                                @click="toggleAutoplay()">
+                            <svg x-show="!autoplay" viewBox="0 0 16 16" width="16" height="16"><path d="M4 2.5v11l9.5-5.5z" fill="currentColor"/></svg>
+                            <svg x-show="autoplay" viewBox="0 0 16 16" width="16" height="16"><path d="M3.5 2.5h3.2v11H3.5zM9.3 2.5h3.2v11H9.3z" fill="currentColor"/></svg>
                         </button>
                     </div>
 
@@ -804,6 +812,7 @@ const ROOM_ID     = <?= json_encode($room_id) ?>;
 const MODULES     = <?= json_encode($modules_by_id) ?>;
 const PILOTS      = <?= json_encode($pilots_by_id) ?>;
 const CLIENT_VERSION = <?= json_encode($client_version) ?>;
+const AUTOPLAY_MS    = 3000;   // autoplay flips a card this often
 
 function roomApp() {
     return {
@@ -824,6 +833,8 @@ function roomApp() {
         staleClient: false,
         preview:     { id: null, x: 0, y: 0 },
         selectedCard: null,
+        autoplay: false,
+        autoTimer: null,
         ARROW_COLORS: { blue: '#4090ff', green: '#40c870', purple: '#a050e0', black: '#a0a0b0' },
         boardW: 0,
         boardH: 0,
@@ -871,6 +882,7 @@ function roomApp() {
             const prevLogLen = this.fightState?.log?.length ?? 0;
             this.fightState  = data.fight;
             if (!this.fightState?.pending) this.chargePicks = [];
+            if (this.autoplay && (this.phase !== 'fight' || !this.canFlip)) this.stopAutoplay();
             if (this.phase !== prevPhase) this.selectedCard = null;
             if ((data.fight?.log?.length ?? 0) !== prevLogLen) this.renderFightLog();
 
@@ -1242,11 +1254,37 @@ function roomApp() {
             await this.poll();
         },
 
-        async fightFlip() {
+        async fightFlip(auto = false) {
             const fd = new FormData();
             fd.append('room_id', this.roomId);
+            if (auto) fd.append('expect_flips', this.fightState?.flips ?? 0);
             await fetch('api/fight_flip.php', { method: 'POST', body: fd });
             await this.poll();
+        },
+
+        // Autoplay: flip now, then every AUTOPLAY_MS, until a decision is
+        // needed, the fight ends or the player pauses.
+        toggleAutoplay() {
+            if (this.autoplay) { this.stopAutoplay(); return; }
+            if (!this.canFlip) return;
+            this.autoplay = true;
+            this.autoStep();
+        },
+
+        async autoStep() {
+            this.autoTimer = null;
+            if (!this.autoplay) return;
+            if (!this.canFlip) { this.stopAutoplay(); return; }
+            await this.fightFlip(true);
+            if (!this.autoplay) return;
+            if (!this.canFlip) { this.stopAutoplay(); return; }
+            this.autoTimer = setTimeout(() => this.autoStep(), AUTOPLAY_MS);
+        },
+
+        stopAutoplay() {
+            this.autoplay = false;
+            clearTimeout(this.autoTimer);
+            this.autoTimer = null;
         },
 
         // Show the full card next to the hovered module, kept inside the viewport

@@ -16,6 +16,13 @@ if (!$state)                               { echo json_encode(['ok' => false, 'e
 if (!isset($state['players'][$player_id])) { echo json_encode(['ok' => false, 'error' => 'Not in room']);    exit; }
 if ($state['phase'] !== 'fight')           { echo json_encode(['ok' => false, 'error' => 'Not in fight']);   exit; }
 
-FileStore::update(Room::statePath($room_id), fn($s) => Fight::flip($s));
+// Autoplay sends the flip count it saw, so two clients autoplaying at once
+// can't both flip the same card: a stale request is ignored.
+$expect = isset($_POST['expect_flips']) ? (int)$_POST['expect_flips'] : null;
+
+FileStore::update(Room::statePath($room_id), function ($s) use ($expect) {
+    if ($expect !== null && $expect !== ($s['fight']['flips'] ?? 0)) return $s;
+    return Fight::flip($s);
+});
 
 echo json_encode(['ok' => true]);

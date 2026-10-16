@@ -888,6 +888,32 @@ input[type=text]:disabled { opacity: 0.4; cursor: not-allowed; }
 
 .fight-flip-btn { padding: 0.55rem 1.1rem; font-size: 0.95rem; }
 
+.fight-autoplay-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 44px;
+    height: 44px;
+    border-radius: 6px;
+    padding: 0;
+    border: 2px solid var(--success);
+    background: transparent;
+    color: var(--success);
+    cursor: pointer;
+    transition: background 0.12s, color 0.12s;
+}
+.fight-autoplay-btn svg { width: 36px; height: 36px; flex-shrink: 0; }
+.fight-autoplay-btn:hover:not(:disabled) { background: color-mix(in srgb, var(--success) 18%, transparent); }
+.fight-autoplay-btn.active {
+    background: var(--success);
+    color: #06200f;
+    animation: autoplay-pulse 1.5s ease-in-out infinite;
+}
+.fight-autoplay-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+@keyframes autoplay-pulse {
+    50% { box-shadow: 0 0 0 5px color-mix(in srgb, var(--success) 30%, transparent); }
+}
+
 /* Current card */
 
 .fight-current { flex-shrink: 0; }
