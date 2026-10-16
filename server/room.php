@@ -649,7 +649,7 @@ foreach ($pilots_raw['pilots'] as $p) {
                     <div class="arena-token-layer">
                         <template x-for="t in boardTokens" :key="t.key">
                             <span class="arena-token"
-                                  :class="{ ['pilot-' + t.pilot]: true, destroyed: t.destroyed, acting: t.pilot === fightState?.current?.pilot }"
+                                  :class="{ ['pilot-' + t.pilot]: true, destroyed: t.destroyed, wrecked: t.wrecked, acting: t.pilot === fightState?.current?.pilot }"
                                   :style="{ left: ((t.pos + 0.5) * 100 / 6) + '%', top: (t.y * 100) + '%', '--dx': t.dx + 'px' }"
                                   :title="t.name"></span>
                         </template>
@@ -1065,8 +1065,10 @@ function roomApp() {
             for (const tk of ['1', '2']) {
                 (this.fightState?.mechs?.[tk] ?? []).forEach((m, mi) => {
                     const [y, dx] = LANES[tk + '-' + mi] ?? [0.55, 0];
+                    // A mech destroyed by the current card stays on the board (wrecked) until the next flip
+                    const wrecked = m.hp <= 0 && m.destroyed_on === this.fightState?.flips;
                     mechs.push({ key: tk + '-' + mi, pilot: m.pilot, name: m.pilot_name, pos: m.pos,
-                                 destroyed: m.hp <= 0, y, dx });
+                                 destroyed: m.hp <= 0 && !wrecked, wrecked, y, dx });
                 });
             }
             return mechs;

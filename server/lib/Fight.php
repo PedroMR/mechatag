@@ -107,6 +107,7 @@ class Fight {
         }
         $state['fight']['current'] = $card;
         $state['fight']['attacks'] = [];   // hits made by this card, for the board arrows
+        $state['fight']['flips']   = ($state['fight']['flips'] ?? 0) + 1;
         if ($card === null) return self::endFight($state, 'deck');
 
         // Resolve
@@ -709,6 +710,7 @@ class Fight {
         ];
 
         if ($tgt['hp'] <= 0) {
+            $tgt['destroyed_on'] = $state['fight']['flips'] ?? 0;   // board keeps showing it until the next flip
             $state['fight']['log'][] = "⚡ {$tgt['pilot_name']}'s mech is destroyed!";
         }
         unset($tgt);
@@ -961,6 +963,7 @@ class Fight {
             'discards'      => self::discardPiles($state),
             'current'       => $state['fight']['current'],
             'attacks'       => $state['fight']['attacks'] ?? [],
+            'flips'         => $state['fight']['flips'] ?? 0,
             'mechs'         => $state['fight']['mechs'],
             'pending'       => $state['fight']['pending'] ?? null,
             'result'        => $state['fight']['result'] ?? null,

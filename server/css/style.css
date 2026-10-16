@@ -1186,12 +1186,17 @@ input[type=text]:disabled { opacity: 0.4; cursor: not-allowed; }
     transform: translate(calc(-50% + var(--dx, 0px)), -50%);
     transition: left 0.6s ease-in-out, transform 0.6s ease-in-out, opacity 0.6s ease;
 }
+/* destroyed by the card being resolved; removed on the next flip */
+.arena-token.wrecked {
+    border-color: var(--danger);
+    filter: grayscale(0.7) brightness(0.8);
+}
 /* the mech whose card was flipped last */
 .arena-token.acting::after {
     content: '';
     position: absolute;
     inset: -7px;
-    border: 2px solid rgba(255, 255, 255, 0.85);
+    border: 2px dotted rgba(255, 255, 255, 0.55);
     border-radius: 5px;
     box-shadow: 0 0 8px rgba(255, 255, 255, 0.35);
 }
